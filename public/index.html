@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Logowania</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Nagłówek aplikacji -->
+  <header class="app-header">
+    <div class="header-brand">
+      <h1>System logowania</h1>
+    </div>
+    <div id="userNav" class="user-nav hidden">
+      <span id="navUserInfo" class="user-info"></span>
+      <span id="sessionTimer" class="session-timer" title="Czas do wygaśnięcia sesji z powodu bezczynności">Sesja: --:--</span>
+      <button id="logoutBtn" class="btn btn-secondary btn-sm">Wyloguj</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Komunikat powiadomień / alertów -->
+    <div id="globalAlert" class="alert hidden"></div>
+
+    <!-- 1. EKRAN LOGOWANIA -->
+    <section id="loginSection" class="card login-card">
+      <h2>Logowanie do systemu</h2>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginUsername">Login:</label>
+          <input type="text" id="loginUsername" required autocomplete="username" placeholder="Wpisz login">
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword">Hasło:</label>
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="Wpisz hasło">
+            <button type="button" class="btn-toggle-password" data-target="loginPassword" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Zaloguj się</button>
+      </form>
+
+      <!-- Ściągawka z kontami testowymi dla wygody testowania -->
+      <div class="test-accounts-box">
+        <h3>Konta testowe</h3>
+        <table class="table-sm">
+          <thead>
+            <tr>
+              <th>Login</th>
+              <th>Hasło początkowe</th>
+              <th>Rola</th>
+              <th>Akcja</th>
+            </tr>
+          </thead>
+          <tbody id="testAccountsTbody">
+            <!-- Wypełniane dynamicznie przez JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2. EKRAN PIERWSZEGO LOGOWANIA (WYMUSZONA ZMIANA HASŁA) -->
+    <section id="firstLoginSection" class="card hidden">
+      <div class="alert alert-warning">
+        <strong>Wymuszona zmiana hasła przy pierwszym logowaniu!</strong>
+        <p>Zalogowano hasłem tymczasowym nadanym przez administratora. Musisz ustanowić nowe hasło, aby uzyskać dostęp do aplikacji.</p>
+      </div>
+
+      <h2>Ustanów nowe hasło</h2>
+      <form id="firstLoginForm">
+        <div class="form-group">
+          <label for="firstNewPass">Nowe hasło:</label>
+          <div class="password-wrapper">
+            <input type="password" id="firstNewPass" required placeholder="Min. 12 znaków">
+            <button type="button" class="btn-toggle-password" data-target="firstNewPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+          </div>
+          <small class="hint">Polityka NIST: min. 12 znaków. Sprawdzane w Have I Been Pwned.</small>
+        </div>
+
+        <div class="form-group">
+          <label for="firstConfirmPass">Powtórz nowe hasło:</label>
+          <div class="password-wrapper">
+            <input type="password" id="firstConfirmPass" required placeholder="Wpisz ponownie nowe hasło">
+            <button type="button" class="btn-toggle-password" data-target="firstConfirmPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Zapisz nowe hasło i kontynuuj</button>
+      </form>
+    </section>
+
+    <!-- 3. GŁÓWNY PANEL PO ZALOGOWANIU -->
+    <section id="appSection" class="hidden">
+      <!-- Menu zakładek -->
+      <nav class="tabs-nav">
+        <button class="tab-btn active" data-tab="tabProfile">Mój Profil</button>
+        <button id="tabBtnAdmin" class="tab-btn hidden" data-tab="tabAdmin">Panel Administratora</button>
+        <button id="tabBtnEmployee" class="tab-btn hidden" data-tab="tabEmployee">Strefa Pracownika</button>
+        <button id="tabBtnGuest" class="tab-btn hidden" data-tab="tabGuest">Strefa Gościa</button>
+        <button class="tab-btn" data-tab="tabChangePass">Zmiana hasła</button>
+      </nav>
+
+      <!-- Zakładka 1: Profil -->
+      <div id="tabProfile" class="tab-content card active">
+        <h2>Informacje o profilu i uprawnieniach (RBAC)</h2>
+        <div class="profile-info-grid">
+          <div><strong>Identyfikator (Login):</strong> <span id="profUsername">-</span></div>
+          <div><strong>Przypisana Rola:</strong> <span id="profRole" class="badge">-</span></div>
+          <div><strong>Ostatnia zmiana hasła:</strong> <span id="profPassDate">-</span></div>
+        </div>
+        <div class="permissions-box">
+          <h3>Twoje uprawnienia w systemie:</h3>
+          <ul id="profPermissionsList"></ul>
+        </div>
+      </div>
+
+      <!-- Zakładka 2: Panel Administratora (tylko Administrator) -->
+      <div id="tabAdmin" class="tab-content card hidden">
+        <h2>Panel Administratora</h2>
+        
+        <!-- Podsekcja: Konfiguracja polityki haseł i sesji -->
+        <div class="admin-subblock">
+          <h3>Polityka haseł i sesji</h3>
+          <form id="policyForm" class="policy-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cfgMinLength">Minimalna długość hasła:</label>
+                <input type="number" id="cfgMinLength" min="6" max="64" required>
+                <small class="hint">NIST: domyślnie min. 12 znaków</small>
+              </div>
+
+              <div class="form-group">
+                <label for="cfgTimeout">Czas bezczynności sesji:</label>
+                <input type="number" id="cfgTimeout" min="1" max="120" required>
+                <small class="hint">Wylogowanie po okresie braku aktywności</small>
+              </div>
+
+              <div class="form-group">
+                <label for="cfgValidity">Ważność hasła:</label>
+                <input type="number" id="cfgValidity" min="0" max="365" required>
+                <small class="hint">0 = brak wygasania</small>
+              </div>
+            </div>
+
+            <div class="form-group form-checkbox">
+              <label>
+                <input type="checkbox" id="cfgHibp">
+                <strong>Sprawdzenie hasła w bazie wycieków Have I Been Pwned (Wariant 5)</strong>
+              </label>
+              <small class="hint">Wykorzystuje API Pwned Passwords z k-anonimowością (wysyłanie tylko 5 znaków SHA-1).</small>
+            </div>
+
+            <button type="submit" class="btn btn-secondary">Zapisz ustawienia polityki</button>
+          </form>
+        </div>
+
+        <!-- Podsekcja: Dodawanie użytkownika -->
+        <div class="admin-subblock">
+          <h3>Dodaj nowego użytkownika</h3>
+          <p class="subtitle">System wygeneruje hasło jednorazowe: 14 znaków alfanumerycznych, ważne 24h.</p>
+          <form id="addUserForm" class="form-inline">
+            <div class="form-group">
+              <label for="newUsername">Login:</label>
+              <input type="text" id="newUsername" required placeholder="np. jan_nowak">
+            </div>
+            <div class="form-group">
+              <label for="newUserRole">Rola:</label>
+              <select id="newUserRole" required>
+                <option value="Administrator">Administrator</option>
+                <option value="Pracownik" selected>Pracownik</option>
+                <option value="Gość">Gość</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Utwórz użytkownika</button>
+          </form>
+
+          <div id="newPasswordAlert" class="alert alert-success hidden"></div>
+        </div>
+
+        <!-- Podsekcja: Lista użytkowników -->
+        <div class="admin-subblock">
+          <div class="table-header-bar">
+            <h3>Lista użytkowników w systemie</h3>
+            <button id="btnResetDb" class="btn btn-secondary btn-sm" title="Przywraca 6 kont początkowych">Zresetuj do 6 kont testowych</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Login</th>
+                  <th>Rola</th>
+                  <th>Status</th>
+                  <th>Wymusza zmianę</th>
+                  <th>Ważność hasła jednorazowego</th>
+                  <th>Akcje</th>
+                </tr>
+              </thead>
+              <tbody id="adminUsersTbody">
+                <!-- Wypełniane przez JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zakładka 3: Strefa Pracownika -->
+      <div id="tabEmployee" class="tab-content card hidden">
+        <h2>Strefa Pracownika</h2>
+        <p class="subtitle">Zasób chroniony uprawnieniem <code>employee:access</code> (Rola: Administrator, Pracownik).</p>
+        <div id="employeeContent">
+          <!-- Wypełniane z API -->
+        </div>
+      </div>
+
+      <!-- Zakładka 4: Strefa Gościa -->
+      <div id="tabGuest" class="tab-content card hidden">
+        <h2>Strefa Gościa</h2>
+        <p class="subtitle">Zasób chroniony uprawnieniem <code>guest:access</code> (Dostępny dla wszystkich ról).</p>
+        <div id="guestContent">
+          <!-- Wypełniane z API -->
+        </div>
+      </div>
+
+      <!-- Zakładka 5: Zmiana hasła (dostępna dla każdego zalogowanego) -->
+      <div id="tabChangePass" class="tab-content card hidden">
+        <h2>Zmiana hasła</h2>
+        <p class="subtitle">Nowe hasło musi spełniać politykę (min. 12 znaków), nie może znajdować się w wyciekach HIBP i musi różnić się od poprzednich.</p>
+        
+        <form id="changePasswordForm">
+          <div class="form-group">
+            <label for="changeOldPass">Dotychczasowe hasło:</label>
+            <div class="password-wrapper">
+              <input type="password" id="changeOldPass" required autocomplete="current-password" placeholder="Podaj obecne hasło">
+              <button type="button" class="btn-toggle-password" data-target="changeOldPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="changeNewPass">Nowe hasło:</label>
+            <div class="password-wrapper">
+              <input type="password" id="changeNewPass" required autocomplete="new-password" placeholder="Min. 12 znaków">
+              <button type="button" class="btn-toggle-password" data-target="changeNewPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="changeConfirmPass">Powtórz nowe hasło:</label>
+            <div class="password-wrapper">
+              <input type="password" id="changeConfirmPass" required autocomplete="new-password" placeholder="Powtórz nowe hasło">
+              <button type="button" class="btn-toggle-password" data-target="changeConfirmPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Zmień hasło</button>
+        </form>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
