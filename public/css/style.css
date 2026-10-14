@@ -280,7 +280,8 @@ h3 {
   color: #0f172a;
 }
 
-.badge-admin {
+.badge-admin,
+.badge-administrator {
   background-color: #e0e7ff;
   color: #3730a3;
 }
@@ -288,7 +289,8 @@ h3 {
   background-color: #ecfdf5;
   color: #065f46;
 }
-.badge-gosc {
+.badge-gosc,
+.badge-gość {
   background-color: #f1f5f9;
   color: #475569;
 }

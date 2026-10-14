@@ -12,7 +12,11 @@ const app = express();
 app.use(express.json());
 
 // Obsługa plików statycznych (frontend)
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+  }
+}));
 
 // Trasy API
 app.use('/api', authRoutes);

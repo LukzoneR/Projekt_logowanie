@@ -119,6 +119,7 @@ router.post('/change-password', sessionMiddleware, async (req, res) => {
  * Informacja o 6 kontach testowych i wariancie (ściągawka ułatwiająca testowanie)
  */
 router.get('/test-accounts', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.json({
     variant: 5,
     rules: {
@@ -127,14 +128,17 @@ router.get('/test-accounts', (req, res) => {
       roles: ['Administrator', 'Pracownik', 'Gość'],
       oneTimePassword: '14 znaków alfanumerycznych, ważne 24 h'
     },
-    accounts: RAW_TEST_USERS.map(u => ({
-      username: u.username,
-      password: u.rawPassword,
-      role: u.role,
-      mustChangePassword: u.mustChangePassword,
-      isBlocked: u.isBlocked,
-      description: u.description
-    }))
+    accounts: RAW_TEST_USERS.map(rawUser => {
+      const liveUser = db.getUserByUsername(rawUser.username);
+      return {
+        username: rawUser.username,
+        password: rawUser.rawPassword,
+        role: liveUser ? liveUser.role : rawUser.role,
+        mustChangePassword: liveUser ? liveUser.mustChangePassword : rawUser.mustChangePassword,
+        isBlocked: liveUser ? liveUser.isBlocked : rawUser.isBlocked,
+        description: rawUser.description
+      };
+    })
   });
 });
 

@@ -3,7 +3,7 @@
     "minPasswordLength": 12,
     "checkHaveIBeenPwned": true,
     "passwordValidityDays": 90,
-    "sessionInactivityTimeoutMinutes": 15,
+    "sessionInactivityTimeoutMinutes": 10,
     "oneTimePasswordLength": 14,
     "oneTimePasswordValidityHours": 24
   },
@@ -26,16 +26,17 @@
     {
       "id": "usr_pracownik1",
       "username": "pracownik1",
-      "passwordHash": "$2b$10$G5guRPUTdlrnoPezXQ53bOK1d9nQdiX4Y6HX4Xc7QMnUv7q4uirIa",
+      "passwordHash": "$2b$10$wquGi3IVCe8.7YkAi4JIO./t6CJL.QScBCCgrtRINKddcJOEpcIKK",
       "passwordHistory": [
-        "$2b$10$G5guRPUTdlrnoPezXQ53bOK1d9nQdiX4Y6HX4Xc7QMnUv7q4uirIa"
+        "$2b$10$G5guRPUTdlrnoPezXQ53bOK1d9nQdiX4Y6HX4Xc7QMnUv7q4uirIa",
+        "$2b$10$wquGi3IVCe8.7YkAi4JIO./t6CJL.QScBCCgrtRINKddcJOEpcIKK"
       ],
       "role": "Pracownik",
-      "mustChangePassword": true,
-      "temporaryPasswordExpiresAt": "2026-10-15T16:31:22.129Z",
+      "mustChangePassword": false,
+      "temporaryPasswordExpiresAt": null,
       "isBlocked": false,
       "isPermanentAdmin": false,
-      "passwordChangedAt": "2026-10-14T16:31:22.129Z",
+      "passwordChangedAt": "2026-10-14T17:26:47.195Z",
       "createdAt": "2026-10-14T16:31:22.129Z"
     },
     {

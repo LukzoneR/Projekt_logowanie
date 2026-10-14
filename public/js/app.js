@@ -99,6 +99,7 @@ function showView(viewName) {
   if (viewName === 'login') {
     loginSection.classList.remove('hidden');
     stopInactivityTracking();
+    loadTestAccounts();
   } else if (viewName === 'firstLogin') {
     firstLoginSection.classList.remove('hidden');
     userNav.classList.remove('hidden');
@@ -623,6 +624,7 @@ async function handleRoleChange(e) {
     }
 
     showAlert(`Zaktualizowano rolę użytkownika na: ${newRole}`, 'success', 3000);
+    loadTestAccounts();
   } catch (err) {
     showAlert(err.message, 'error');
   }
@@ -805,16 +807,17 @@ async function loadTestAccounts() {
   if (!tbody) return;
 
   try {
-    const res = await fetch('/api/test-accounts');
+    const res = await fetch('/api/test-accounts?t=' + Date.now(), { cache: 'no-store' });
     const data = await res.json();
 
     tbody.innerHTML = '';
     (data.accounts || []).forEach(acc => {
       const tr = document.createElement('tr');
+      const badgeClass = acc.role === 'Administrator' ? 'badge-admin' : (acc.role === 'Pracownik' ? 'badge-pracownik' : 'badge-gosc');
       tr.innerHTML = `
         <td><strong>${acc.username}</strong></td>
         <td><code>${acc.password}</code></td>
-        <td><span class="badge badge-${acc.role.toLowerCase()}">${acc.role}</span></td>
+        <td><span class="badge ${badgeClass}">${acc.role}</span></td>
         <td>
           <button class="btn btn-secondary btn-sm btn-fill-login" data-user="${acc.username}" data-pass="${acc.password}">
             Użyj
