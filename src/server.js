@@ -14,7 +14,7 @@ app.use(express.json());
 // Obsługa plików statycznych (frontend)
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res) => {
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   }
 }));
 

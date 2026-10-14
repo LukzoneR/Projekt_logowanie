@@ -120,6 +120,22 @@ router.post('/change-password', sessionMiddleware, async (req, res) => {
  */
 router.get('/test-accounts', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  const dbUsers = db.getUsers();
+
+  const accounts = dbUsers.map(liveUser => {
+    const rawMatch = RAW_TEST_USERS.find(r => r.username.toLowerCase() === liveUser.username.toLowerCase());
+    const displayPassword = liveUser.temporaryPasswordRaw || (rawMatch ? rawMatch.rawPassword : '••••••••••••');
+    return {
+      id: liveUser.id,
+      username: liveUser.username,
+      password: displayPassword,
+      role: liveUser.role,
+      mustChangePassword: liveUser.mustChangePassword,
+      isBlocked: liveUser.isBlocked,
+      description: rawMatch ? rawMatch.description : 'Użytkownik utworzony przez administratora'
+    };
+  });
+
   res.json({
     variant: 5,
     rules: {
@@ -128,18 +144,22 @@ router.get('/test-accounts', (req, res) => {
       roles: ['Administrator', 'Pracownik', 'Gość'],
       oneTimePassword: '14 znaków alfanumerycznych, ważne 24 h'
     },
-    accounts: RAW_TEST_USERS.map(rawUser => {
-      const liveUser = db.getUserByUsername(rawUser.username);
-      return {
-        username: rawUser.username,
-        password: rawUser.rawPassword,
-        role: liveUser ? liveUser.role : rawUser.role,
-        mustChangePassword: liveUser ? liveUser.mustChangePassword : rawUser.mustChangePassword,
-        isBlocked: liveUser ? liveUser.isBlocked : rawUser.isBlocked,
-        description: rawUser.description
-      };
-    })
+    accounts
+  });
+});
+
+/**
+ * POST /api/reset-database
+ * Reset bazy danych do 6 początkowych kont testowych (dostępne publicznie dla wygody testowania)
+ */
+router.post('/reset-database', (req, res) => {
+  const data = db.resetToInitial();
+  res.json({
+    success: true,
+    message: 'Baza danych została zresetowana do 6 użytkowników początkowych.',
+    usersCount: data.users.length
   });
 });
 
 module.exports = router;
+

@@ -214,6 +214,7 @@ async function changePassword({ userId, oldPassword, newPassword, confirmPasswor
     passwordHistory: history,
     mustChangePassword: false,
     temporaryPasswordExpiresAt: null,
+    temporaryPasswordRaw: null,
     passwordChangedAt: now
   });
 

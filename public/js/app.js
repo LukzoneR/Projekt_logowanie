@@ -222,7 +222,45 @@ function initEventListeners() {
   // Panel administratora: formularze
   document.getElementById('addUserForm').addEventListener('submit', handleAddUser);
   document.getElementById('policyForm').addEventListener('submit', handleUpdatePolicy);
-  document.getElementById('btnResetDb').addEventListener('click', handleResetDatabase);
+
+  // Przycisk resetowania do 6 kont testowych w panelu administratora
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.closest('#btnResetDb')) {
+      e.preventDefault();
+      handleResetDatabase();
+    }
+  });
+
+  // Delegacja zdarzeń w tabeli użytkowników
+  const adminTbody = document.getElementById('adminUsersTbody');
+  if (adminTbody) {
+    adminTbody.addEventListener('change', (e) => {
+      const select = e.target.closest('.admin-role-select');
+      if (select) {
+        handleRoleChange(select.getAttribute('data-id'), select.value);
+      }
+    });
+
+    adminTbody.addEventListener('click', (e) => {
+      const blockBtn = e.target.closest('.btn-block-user');
+      if (blockBtn) {
+        handleBlockToggle(blockBtn.getAttribute('data-id'));
+        return;
+      }
+
+      const resetBtn = e.target.closest('.btn-reset-user');
+      if (resetBtn) {
+        handleResetClick(resetBtn.getAttribute('data-id'));
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.btn-delete-user');
+      if (deleteBtn) {
+        handleDeleteClick(deleteBtn.getAttribute('data-id'));
+        return;
+      }
+    });
+  }
 
   // Przełączanie widoczności hasła (pokaż/ukryj)
   document.querySelectorAll('.btn-toggle-password').forEach(btn => {
@@ -523,6 +561,23 @@ async function loadAdminData() {
   await Promise.all([loadAdminUsers(), loadAdminPolicy()]);
 }
 
+let currentAdminUsers = [];
+
+function showAdminUsersAlert(message, type = 'success', durationMs = 6000) {
+  const alertEl = document.getElementById('adminUsersAlert');
+  if (!alertEl) return;
+  alertEl.className = `alert alert-${type}`;
+  alertEl.innerHTML = message;
+  alertEl.classList.remove('hidden');
+  alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  if (durationMs > 0) {
+    setTimeout(() => {
+      alertEl.classList.add('hidden');
+    }, durationMs);
+  }
+}
+
 async function loadAdminUsers() {
   const tbody = document.getElementById('adminUsersTbody');
   tbody.innerHTML = '<tr><td colspan="6">Pobieranie użytkowników...</td></tr>';
@@ -536,6 +591,7 @@ async function loadAdminUsers() {
 
     tbody.innerHTML = '';
     const users = res.data.users || [];
+    currentAdminUsers = users;
 
     users.forEach(u => {
       const tr = document.createElement('tr');
@@ -588,29 +644,12 @@ async function loadAdminUsers() {
       tbody.appendChild(tr);
     });
 
-    // Podpięcie zdarzeń przycisków w tabeli
-    tbody.querySelectorAll('.admin-role-select').forEach(sel => {
-      sel.addEventListener('change', handleRoleChange);
-    });
-    tbody.querySelectorAll('.btn-block-user').forEach(btn => {
-      btn.addEventListener('click', handleBlockToggle);
-    });
-    tbody.querySelectorAll('.btn-reset-user').forEach(btn => {
-      btn.addEventListener('click', handleResetPasswordModal);
-    });
-    tbody.querySelectorAll('.btn-delete-user').forEach(btn => {
-      btn.addEventListener('click', handleDeleteUser);
-    });
-
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${err.message}</td></tr>`;
   }
 }
 
-async function handleRoleChange(e) {
-  const userId = e.target.getAttribute('data-id');
-  const newRole = e.target.value;
-
+async function handleRoleChange(userId, newRole) {
   try {
     const res = await apiFetch(`/api/admin/users/${userId}/role`, {
       method: 'PUT',
@@ -618,90 +657,125 @@ async function handleRoleChange(e) {
     });
 
     if (!res.ok) {
-      showAlert(res.data.message || 'Błąd zmiany roli', 'error');
+      showAdminUsersAlert(res.data.message || 'Błąd zmiany roli', 'error');
       loadAdminUsers();
       return;
     }
 
-    showAlert(`Zaktualizowano rolę użytkownika na: ${newRole}`, 'success', 3000);
+    showAdminUsersAlert(`Zaktualizowano rolę użytkownika na: ${newRole}`, 'success', 3000);
     loadTestAccounts();
   } catch (err) {
-    showAlert(err.message, 'error');
+    showAdminUsersAlert(err.message, 'error');
   }
 }
 
-async function handleBlockToggle(e) {
-  const userId = e.target.getAttribute('data-id');
-
+async function handleBlockToggle(userId) {
   try {
     const res = await apiFetch(`/api/admin/users/${userId}/block`, {
       method: 'PUT'
     });
 
     if (!res.ok) {
-      showAlert(res.data.message || 'Błąd zmiany blokady', 'error');
+      showAdminUsersAlert(res.data.message || 'Błąd zmiany blokady', 'error');
       return;
     }
 
-    showAlert(res.data.message, 'success', 3000);
+    showAdminUsersAlert(res.data.message, 'success', 3000);
     loadAdminUsers();
+    loadTestAccounts();
   } catch (err) {
-    showAlert(err.message, 'error');
+    showAdminUsersAlert(err.message, 'error');
   }
 }
 
-async function handleResetPasswordModal(e) {
-  const userId = e.target.getAttribute('data-id');
-  if (!confirm('Czy na pewno chcesz wygenerować nowe hasło jednorazowe dla tego użytkownika? Dotychczasowe hasło i sesje zostaną unieważnione.')) {
-    return;
-  }
+function handleResetClick(userId) {
+  const user = currentAdminUsers.find(u => u.id === userId);
+  const username = user ? user.username : 'użytkownika';
 
-  try {
-    const res = await apiFetch(`/api/admin/users/${userId}/reset-password`, {
-      method: 'POST'
-    });
+  const alertEl = document.getElementById('adminUsersAlert');
+  alertEl.className = 'alert alert-warning';
+  alertEl.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+      <span>Wygenerować nowe hasło jednorazowe dla użytkownika <strong>${username}</strong>? Dotychczasowe hasło i sesje zostaną unieważnione.</span>
+      <div style="display: flex; gap: 6px;">
+        <button type="button" id="btnExecuteReset" class="btn btn-sm btn-primary">Tak, generuj hasło</button>
+        <button type="button" id="btnCancelAction" class="btn btn-sm btn-secondary">Anuluj</button>
+      </div>
+    </div>
+  `;
+  alertEl.classList.remove('hidden');
+  alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    if (!res.ok) {
-      showAlert(res.data.message || 'Błąd generowania hasła', 'error');
-      return;
+  document.getElementById('btnCancelAction').onclick = () => {
+    alertEl.classList.add('hidden');
+  };
+
+  document.getElementById('btnExecuteReset').onclick = async () => {
+    try {
+      const res = await apiFetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST'
+      });
+
+      if (!res.ok) {
+        showAdminUsersAlert(res.data.message || 'Błąd generowania hasła', 'error');
+        return;
+      }
+
+      showAdminUsersAlert(`
+        <strong>Wygenerowano hasło jednorazowe dla użytkownika "${username}":</strong><br>
+        Kod hasła: <code style="font-size: 1.15rem; background: #fff; padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; color: #0f172a;">${res.data.temporaryPassword}</code> (14 znaków)<br>
+        Ważne przez: 24 godziny (do ${new Date(res.data.expiresAt).toLocaleString()})<br>
+        <small>Przekaż to hasło użytkownikowi. Przy logowaniu zostanie wymuszona zmiana hasła.</small>
+      `, 'success', 0);
+
+      loadAdminUsers();
+      loadTestAccounts();
+    } catch (err) {
+      showAdminUsersAlert(err.message, 'error');
     }
-
-    const alertBox = document.getElementById('newPasswordAlert');
-    alertBox.innerHTML = `
-      <strong>Wygenerowano hasło jednorazowe (Wariant 5):</strong><br>
-      Kod: <code style="font-size: 1.1rem; background: #fff; padding: 2px 6px; border: 1px solid #cbd5e1; border-radius: 4px;">${res.data.temporaryPassword}</code> (14 znaków)<br>
-      Ważne przez: 24 godziny (do ${new Date(res.data.expiresAt).toLocaleString()})<br>
-      <small>Przekaż to hasło użytkownikowi. Przy logowaniu zostanie wymuszona zmiana hasła.</small>
-    `;
-    alertBox.classList.remove('hidden');
-
-    loadAdminUsers();
-  } catch (err) {
-    showAlert(err.message, 'error');
-  }
+  };
 }
 
-async function handleDeleteUser(e) {
-  const userId = e.target.getAttribute('data-id');
-  if (!confirm('Czy na pewno chcesz usunąć tego użytkownika?')) {
-    return;
-  }
+function handleDeleteClick(userId) {
+  const user = currentAdminUsers.find(u => u.id === userId);
+  const username = user ? user.username : 'użytkownika';
 
-  try {
-    const res = await apiFetch(`/api/admin/users/${userId}`, {
-      method: 'DELETE'
-    });
+  const alertEl = document.getElementById('adminUsersAlert');
+  alertEl.className = 'alert alert-warning';
+  alertEl.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+      <span>Czy na pewno chcesz bezpowrotnie usunąć użytkownika <strong>${username}</strong>?</span>
+      <div style="display: flex; gap: 6px;">
+        <button type="button" id="btnExecuteDelete" class="btn btn-sm btn-danger">Tak, usuń</button>
+        <button type="button" id="btnCancelAction" class="btn btn-sm btn-secondary">Anuluj</button>
+      </div>
+    </div>
+  `;
+  alertEl.classList.remove('hidden');
+  alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    if (!res.ok) {
-      showAlert(res.data.message || 'Błąd usuwania użytkownika', 'error');
-      return;
+  document.getElementById('btnCancelAction').onclick = () => {
+    alertEl.classList.add('hidden');
+  };
+
+  document.getElementById('btnExecuteDelete').onclick = async () => {
+    try {
+      const res = await apiFetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        showAdminUsersAlert(res.data.message || 'Błąd usuwania użytkownika', 'error');
+        return;
+      }
+
+      showAdminUsersAlert(`Użytkownik "${username}" został pomyślnie usunięty.`, 'success', 4000);
+      loadAdminUsers();
+      loadTestAccounts();
+    } catch (err) {
+      showAdminUsersAlert(err.message, 'error');
     }
-
-    showAlert('Użytkownik został usunięty.', 'success', 3000);
-    loadAdminUsers();
-  } catch (err) {
-    showAlert(err.message, 'error');
-  }
+  };
 }
 
 async function handleAddUser(e) {
@@ -732,6 +806,7 @@ async function handleAddUser(e) {
     alertBox.classList.remove('hidden');
 
     loadAdminUsers();
+    loadTestAccounts();
   } catch (err) {
     showAlert(err.message, 'error');
   }
@@ -785,21 +860,25 @@ async function handleUpdatePolicy(e) {
 }
 
 async function handleResetDatabase() {
-  if (!confirm('Czy na pewno chcesz zresetować bazę danych do 6 kont testowych?')) {
-    return;
-  }
-
   try {
-    const res = await apiFetch('/api/admin/reset-database', { method: 'POST' });
+    const res = await fetch('/api/reset-database', { method: 'POST' });
+    const data = await res.json();
     if (res.ok) {
-      showAlert('Baza została zresetowana do 6 kont testowych.', 'success', 3000);
+      showAdminUsersAlert('Baza danych została pomyślnie zresetowana do 6 kont testowych.', 'success', 5000);
       loadAdminUsers();
       loadTestAccounts();
+      loadAdminPolicy();
+    } else {
+      showAdminUsersAlert(data.message || 'Błąd resetowania bazy danych.', 'error');
     }
   } catch (err) {
-    showAlert(err.message, 'error');
+    showAdminUsersAlert(err.message, 'error');
   }
 }
+
+window.handleResetDatabase = handleResetDatabase;
+
+
 
 // --- Ładowanie ściągawki z 6 kontami testowymi na ekranie logowania ---
 async function loadTestAccounts() {

@@ -108,9 +108,9 @@
 
       <!-- Zakładka 1: Profil -->
       <div id="tabProfile" class="tab-content card active">
-        <h2>Informacje o profilu i uprawnieniach (RBAC)</h2>
+        <h2>Informacje o profilu i uprawnieniach</h2>
         <div class="profile-info-grid">
-          <div><strong>Identyfikator (Login):</strong> <span id="profUsername">-</span></div>
+          <div><strong>Login:</strong> <span id="profUsername">-</span></div>
           <div><strong>Przypisana Rola:</strong> <span id="profRole" class="badge">-</span></div>
           <div><strong>Ostatnia zmiana hasła:</strong> <span id="profPassDate">-</span></div>
         </div>
@@ -151,9 +151,9 @@
             <div class="form-group form-checkbox">
               <label>
                 <input type="checkbox" id="cfgHibp">
-                <strong>Sprawdzenie hasła w bazie wycieków Have I Been Pwned (Wariant 5)</strong>
+                <strong>Sprawdzenie hasła w bazie wycieków Have I Been Pwned</strong>
               </label>
-              <small class="hint">Wykorzystuje API Pwned Passwords z k-anonimowością (wysyłanie tylko 5 znaków SHA-1).</small>
+              <small class="hint">Wykorzystuje API Pwned Passwords z k-anonimowością</small>
             </div>
 
             <button type="submit" class="btn btn-secondary">Zapisz ustawienia polityki</button>
@@ -163,7 +163,6 @@
         <!-- Podsekcja: Dodawanie użytkownika -->
         <div class="admin-subblock">
           <h3>Dodaj nowego użytkownika</h3>
-          <p class="subtitle">System wygeneruje hasło jednorazowe: 14 znaków alfanumerycznych, ważne 24h.</p>
           <form id="addUserForm" class="form-inline">
             <div class="form-group">
               <label for="newUsername">Login:</label>
@@ -187,8 +186,9 @@
         <div class="admin-subblock">
           <div class="table-header-bar">
             <h3>Lista użytkowników w systemie</h3>
-            <button id="btnResetDb" class="btn btn-secondary btn-sm" title="Przywraca 6 kont początkowych">Zresetuj do 6 kont testowych</button>
+            <button type="button" id="btnResetDb" class="btn btn-secondary btn-sm" onclick="handleResetDatabase()" title="Przywraca 6 kont początkowych">Zresetuj do 6 kont testowych</button>
           </div>
+          <div id="adminUsersAlert" class="alert hidden"></div>
           <div class="table-responsive">
             <table class="table">
               <thead>
@@ -212,7 +212,7 @@
       <!-- Zakładka 3: Strefa Pracownika -->
       <div id="tabEmployee" class="tab-content card hidden">
         <h2>Strefa Pracownika</h2>
-        <p class="subtitle">Zasób chroniony uprawnieniem <code>employee:access</code> (Rola: Administrator, Pracownik).</p>
+        <p class="subtitle">Zasób chroniony uprawnieniem <code>employee:access</code></p>
         <div id="employeeContent">
           <!-- Wypełniane z API -->
         </div>
@@ -221,7 +221,7 @@
       <!-- Zakładka 4: Strefa Gościa -->
       <div id="tabGuest" class="tab-content card hidden">
         <h2>Strefa Gościa</h2>
-        <p class="subtitle">Zasób chroniony uprawnieniem <code>guest:access</code> (Dostępny dla wszystkich ról).</p>
+        <p class="subtitle">Zasób chroniony uprawnieniem <code>guest:access</code></p>
         <div id="guestContent">
           <!-- Wypełniane z API -->
         </div>
@@ -265,6 +265,6 @@
 
   </main>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>
