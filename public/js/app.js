@@ -723,7 +723,7 @@ function handleResetClick(userId) {
 
       showAdminUsersAlert(`
         <strong>Wygenerowano hasło jednorazowe dla użytkownika "${username}":</strong><br>
-        Kod hasła: <code style="font-size: 1.15rem; background: #fff; padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; color: #0f172a;">${res.data.temporaryPassword}</code> (14 znaków)<br>
+        Hasło: <code style="font-size: 1.15rem; background: #fff; padding: 2px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; color: #0f172a;">${res.data.temporaryPassword}</code><br>
         Ważne przez: 24 godziny (do ${new Date(res.data.expiresAt).toLocaleString()})<br>
         <small>Przekaż to hasło użytkownikowi. Przy logowaniu zostanie wymuszona zmiana hasła.</small>
       `, 'success', 0);
@@ -744,7 +744,7 @@ function handleDeleteClick(userId) {
   alertEl.className = 'alert alert-warning';
   alertEl.innerHTML = `
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-      <span>Czy na pewno chcesz bezpowrotnie usunąć użytkownika <strong>${username}</strong>?</span>
+      <span>Czy na pewno chcesz usunąć użytkownika <strong>${username}</strong>?</span>
       <div style="display: flex; gap: 6px;">
         <button type="button" id="btnExecuteDelete" class="btn btn-sm btn-danger">Tak, usuń</button>
         <button type="button" id="btnCancelAction" class="btn btn-sm btn-secondary">Anuluj</button>
@@ -799,9 +799,9 @@ async function handleAddUser(e) {
     const alertBox = document.getElementById('newPasswordAlert');
     alertBox.innerHTML = `
       <strong>Utworzono użytkownika ${res.data.user.username}!</strong><br>
-      Hasło jednorazowe (14 znaków alfanumerycznych): <code style="font-size: 1.1rem; background: #fff; padding: 2px 6px; border: 1px solid #cbd5e1; border-radius: 4px;">${res.data.temporaryPassword}</code><br>
+      Hasło jednorazowe: <code style="font-size: 1.1rem; background: #fff; padding: 2px 6px; border: 1px solid #cbd5e1; border-radius: 4px;">${res.data.temporaryPassword}</code><br>
       Ważność: 24 godziny (do ${new Date(res.data.user.temporaryPasswordExpiresAt).toLocaleString()})<br>
-      <small>Użytkownik przy pierwszym logowaniu będzie musiał ustanowić własne nowe hasło.</small>
+      <small>Użytkownik przy pierwszym logowaniu będzie musiał ustawić własne nowe hasło.</small>
     `;
     alertBox.classList.remove('hidden');
 

@@ -63,44 +63,6 @@ Aplikacja posiada wstępnie zdefiniowaną bazę 6 użytkowników testowych:
 > **Wskazówka:** Na ekranie logowania znajduje się wygodna tabela z przyciskami **„Użyj”**, które automatycznie uzupełniają formularz logowania wybranym kontem testowym.
 
 ---
-
-## 4. Architektura i Struktura Katalogów
-
-Kod aplikacji został zaprojektowany modularnie z myślą o rozbudowie w kolejnych modułach:
-
-```
-Projekt_logowanie/
-├── package.json              # Zależności (express, bcryptjs) oraz skrypty
-├── README.md                 # Dokumentacja projektu
-├── test_flows.js             # Automatyczny zestaw testów integracyjnych (24 asercje)
-├── src/
-│   ├── config/
-│   │   └── config.js         # Domyślne parametry polityki haseł i sesji
-│   ├── data/
-│   │   ├── seedData.js       # Definicje 6 początkowych kont testowych
-│   │   └── database.js       # Warstwa persystencji danych (JSON file store)
-│   ├── services/
-│   │   ├── authService.js    # Uwierzytelnianie, haszowanie bcrypt, polityka haseł, HIBP k-anonimowość
-│   │   ├── sessionService.js # Cykl życia sesji, timeout bezczynności, unieważnianie
-│   │   └── rbacService.js    # Definicja ról (Administrator, Pracownik, Gość) i uprawnień
-│   ├── middleware/
-│   │   ├── sessionMiddleware.js # Weryfikacja aktywności i tokena sesji
-│   │   └── rbacMiddleware.js    # Autoryzacja uprawnień i wymóg zmiany hasła
-│   ├── routes/
-│   │   ├── authRoutes.js     # Endpointy logowania, wylogowania, zmiany hasła, me
-│   │   ├── adminRoutes.js    # Panel administratora (użytkownicy, polityka, reset)
-│   │   └── resourceRoutes.js # Chronione zasoby ról (strefa pracownika, strefa gościa)
-│   └── server.js             # Konfiguracja serwera Express i obsługa plików statycznych
-└── public/
-    ├── index.html            # Struktura interfejsu webowego
-    ├── css/
-    │   └── style.css         # Zwięzłe, przejrzyste i proste style CSS
-    └── js/
-        └── app.js            # Logika klienta (SPA, timer bezczynności, obsługa ról)
-```
-
----
-
 ## 5. Uruchomienie Aplikacji
 
 ### Wymagania:

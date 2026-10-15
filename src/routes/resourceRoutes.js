@@ -19,7 +19,7 @@ router.get('/employee/data', requirePermission(PERMISSIONS.EMPLOYEE_ACCESS), (re
     description: 'Dostęp wyłącznie dla ról: Administrator oraz Pracownik.',
     items: [
       { id: 1, title: 'Wewnętrzny grafik zmian', status: 'Zaktualizowany' },
-      { id: 2, title: 'Dokumentacja procedur bezpieczeństwa', status: 'Wersja 2.4' },
+      { id: 2, title: 'Witamy pracownika', status: 'Aktywny' },
       { id: 3, title: 'Raport zadań bieżącego sprintu', status: 'W toku' }
     ],
     userRole: req.user.role
@@ -37,8 +37,8 @@ router.get('/guest/data', requirePermission(PERMISSIONS.GUEST_ACCESS), (req, res
     title: 'Strefa Gościa',
     description: 'Dostęp dla wszystkich uwierzytelnionych ról: Administrator, Pracownik, Gość.',
     announcements: [
-      { date: '2026-10-14', text: 'Witamy w systemie weryfikacji tożsamości i uprawnień RBAC.' },
-      { date: '2026-10-14', text: 'Projekt modułowy - baza dla modułów 2 i 3.' }
+      { date: '2026-10-14', text: 'Witamy w systemie logowania.' },
+      { date: '2026-10-14', text: 'Witamy gościa' }
     ],
     userRole: req.user.role
   });
