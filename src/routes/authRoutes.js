@@ -124,7 +124,7 @@ router.get('/test-accounts', (req, res) => {
 
   const accounts = dbUsers.map(liveUser => {
     const rawMatch = RAW_TEST_USERS.find(r => r.username.toLowerCase() === liveUser.username.toLowerCase());
-    const displayPassword = liveUser.temporaryPasswordRaw || (rawMatch ? rawMatch.rawPassword : '••••••••••••');
+    const displayPassword = rawMatch ? rawMatch.rawPassword : '••••••••••••';
     return {
       id: liveUser.id,
       username: liveUser.username,

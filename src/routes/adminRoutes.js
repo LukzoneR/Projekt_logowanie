@@ -67,7 +67,6 @@ router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) =>
     passwordHistory: [passwordHash],
     mustChangePassword: true,
     temporaryPasswordExpiresAt: expiresAt,
-    temporaryPasswordRaw: tempPassword,
     isBlocked: false,
     isPermanentAdmin: false
   });
@@ -160,8 +159,7 @@ router.post('/users/:id/reset-password', requirePermission(PERMISSIONS.USERS_MAN
   db.updateUser(user.id, {
     passwordHash,
     mustChangePassword: true,
-    temporaryPasswordExpiresAt: expiresAt,
-    temporaryPasswordRaw: tempPassword
+    temporaryPasswordExpiresAt: expiresAt
   });
 
   // Unieważnienie aktywnych sesji tego użytkownika
