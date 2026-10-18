@@ -26,13 +26,13 @@
     {
       "id": "usr_pracownik1",
       "username": "pracownik1",
-      "passwordHash": "$2b$10$d96SlZ.B8Brujkvwq7/d9OnGgFki6tj9bdvP6y3ZPqCp9r69IjHa6",
+      "passwordHash": "$2b$10$HO9LCy4xRAuK4lbbSXHqCOr2sbQLhbtJMCi3WjBmlaMFGKFgxan8e",
       "passwordHistory": [
         "$2b$10$Bfd/zsrG4jLbV1nwtRh/3u0XH4FM6z8TRB97UvWA4uQ16d4FJP8D."
       ],
       "role": "Pracownik",
       "mustChangePassword": true,
-      "temporaryPasswordExpiresAt": "2026-10-19T12:49:42.156Z",
+      "temporaryPasswordExpiresAt": "2026-10-19T13:34:09.520Z",
       "isBlocked": false,
       "isPermanentAdmin": false,
       "passwordChangedAt": "2026-10-15T15:07:58.316Z",

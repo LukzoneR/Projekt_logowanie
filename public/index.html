@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>System Logowania</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
 
   <!-- Nagłówek aplikacji -->
@@ -15,7 +17,8 @@
     </div>
     <div id="userNav" class="user-nav hidden">
       <span id="navUserInfo" class="user-info"></span>
-      <span id="sessionTimer" class="session-timer" title="Czas do wygaśnięcia sesji z powodu bezczynności">Sesja: --:--</span>
+      <span id="sessionTimer" class="session-timer" title="Czas do wygaśnięcia sesji z powodu bezczynności">Sesja:
+        --:--</span>
       <button id="logoutBtn" class="btn btn-secondary btn-sm">Wyloguj</button>
     </div>
   </header>
@@ -28,7 +31,7 @@
     <!-- 1. EKRAN LOGOWANIA -->
     <section id="loginSection" class="card login-card">
       <h2>Logowanie do systemu</h2>
-      
+
       <form id="loginForm">
         <div class="form-group">
           <label for="loginUsername">Login:</label>
@@ -38,8 +41,10 @@
         <div class="form-group">
           <label for="loginPassword">Hasło:</label>
           <div class="password-wrapper">
-            <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="Wpisz hasło">
-            <button type="button" class="btn-toggle-password" data-target="loginPassword" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+            <input type="password" id="loginPassword" required autocomplete="current-password"
+              placeholder="Wpisz hasło">
+            <button type="button" class="btn-toggle-password" data-target="loginPassword" title="Pokaż hasło"
+              aria-label="Pokaż lub ukryj hasło">Pokaż</button>
           </div>
         </div>
 
@@ -69,16 +74,18 @@
     <section id="firstLoginSection" class="card hidden">
       <div class="alert alert-warning">
         <strong>Wymuszona zmiana hasła przy pierwszym logowaniu!</strong>
-        <p>Zalogowano hasłem tymczasowym nadanym przez administratora. Musisz ustanowić nowe hasło, aby uzyskać dostęp do aplikacji.</p>
+        <p>Zalogowano hasłem tymczasowym nadanym przez administratora. Musisz ustanowić nowe hasło, aby uzyskać dostęp
+          do aplikacji.</p>
       </div>
 
-      <h2>Ustanów nowe hasło</h2>
+      <h2>Ustaw nowe hasło</h2>
       <form id="firstLoginForm">
         <div class="form-group">
           <label for="firstNewPass">Nowe hasło:</label>
           <div class="password-wrapper">
             <input type="password" id="firstNewPass" required placeholder="Min. 12 znaków">
-            <button type="button" class="btn-toggle-password" data-target="firstNewPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+            <button type="button" class="btn-toggle-password" data-target="firstNewPass" title="Pokaż hasło"
+              aria-label="Pokaż lub ukryj hasło">Pokaż</button>
           </div>
           <small class="hint">Polityka NIST: min. 12 znaków. Sprawdzane w Have I Been Pwned.</small>
         </div>
@@ -87,7 +94,8 @@
           <label for="firstConfirmPass">Powtórz nowe hasło:</label>
           <div class="password-wrapper">
             <input type="password" id="firstConfirmPass" required placeholder="Wpisz ponownie nowe hasło">
-            <button type="button" class="btn-toggle-password" data-target="firstConfirmPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+            <button type="button" class="btn-toggle-password" data-target="firstConfirmPass" title="Pokaż hasło"
+              aria-label="Pokaż lub ukryj hasło">Pokaż</button>
           </div>
         </div>
 
@@ -123,7 +131,7 @@
       <!-- Zakładka 2: Panel Administratora (tylko Administrator) -->
       <div id="tabAdmin" class="tab-content card hidden">
         <h2>Panel Administratora</h2>
-        
+
         <!-- Podsekcja: Konfiguracja polityki haseł i sesji -->
         <div class="admin-subblock">
           <h3>Polityka haseł i sesji</h3>
@@ -186,7 +194,8 @@
         <div class="admin-subblock">
           <div class="table-header-bar">
             <h3>Lista użytkowników w systemie</h3>
-            <button type="button" id="btnResetDb" class="btn btn-secondary btn-sm" onclick="handleResetDatabase()" title="Przywraca 6 kont początkowych">Zresetuj do 6 kont testowych</button>
+            <button type="button" id="btnResetDb" class="btn btn-secondary btn-sm" onclick="handleResetDatabase()"
+              title="Przywraca 6 kont początkowych">Zresetuj do 6 kont testowych</button>
           </div>
           <div id="adminUsersAlert" class="alert hidden"></div>
           <div class="table-responsive">
@@ -230,30 +239,37 @@
       <!-- Zakładka 5: Zmiana hasła (dostępna dla każdego zalogowanego) -->
       <div id="tabChangePass" class="tab-content card hidden">
         <h2>Zmiana hasła</h2>
-        <p class="subtitle">Nowe hasło musi spełniać politykę (min. 12 znaków), nie może znajdować się w wyciekach HIBP i musi różnić się od poprzednich.</p>
-        
+        <p class="subtitle">Nowe hasło musi spełniać politykę (min. 12 znaków), nie może znajdować się w wyciekach HIBP
+          i musi różnić się od poprzednich.</p>
+
         <form id="changePasswordForm">
           <div class="form-group">
             <label for="changeOldPass">Dotychczasowe hasło:</label>
             <div class="password-wrapper">
-              <input type="password" id="changeOldPass" required autocomplete="current-password" placeholder="Podaj obecne hasło">
-              <button type="button" class="btn-toggle-password" data-target="changeOldPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+              <input type="password" id="changeOldPass" required autocomplete="current-password"
+                placeholder="Podaj obecne hasło">
+              <button type="button" class="btn-toggle-password" data-target="changeOldPass" title="Pokaż hasło"
+                aria-label="Pokaż lub ukryj hasło">Pokaż</button>
             </div>
           </div>
 
           <div class="form-group">
             <label for="changeNewPass">Nowe hasło:</label>
             <div class="password-wrapper">
-              <input type="password" id="changeNewPass" required autocomplete="new-password" placeholder="Min. 12 znaków">
-              <button type="button" class="btn-toggle-password" data-target="changeNewPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+              <input type="password" id="changeNewPass" required autocomplete="new-password"
+                placeholder="Min. 12 znaków">
+              <button type="button" class="btn-toggle-password" data-target="changeNewPass" title="Pokaż hasło"
+                aria-label="Pokaż lub ukryj hasło">Pokaż</button>
             </div>
           </div>
 
           <div class="form-group">
             <label for="changeConfirmPass">Powtórz nowe hasło:</label>
             <div class="password-wrapper">
-              <input type="password" id="changeConfirmPass" required autocomplete="new-password" placeholder="Powtórz nowe hasło">
-              <button type="button" class="btn-toggle-password" data-target="changeConfirmPass" title="Pokaż hasło" aria-label="Pokaż lub ukryj hasło">Pokaż</button>
+              <input type="password" id="changeConfirmPass" required autocomplete="new-password"
+                placeholder="Powtórz nowe hasło">
+              <button type="button" class="btn-toggle-password" data-target="changeConfirmPass" title="Pokaż hasło"
+                aria-label="Pokaż lub ukryj hasło">Pokaż</button>
             </div>
           </div>
 
@@ -267,4 +283,5 @@
 
   <script src="js/app.js?v=4"></script>
 </body>
+
 </html>
