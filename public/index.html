@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>System Logowania</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 
 <body>
@@ -32,6 +32,12 @@
     <section id="loginSection" class="card login-card">
       <h2>Logowanie do systemu</h2>
 
+      <!-- Limit błędnych logowań: komunikat z pozostałym czasem blokady konta -->
+      <div id="lockoutBox" class="lockout-box hidden" role="alert" aria-live="polite">
+        Konto <strong id="lockoutUsername"></strong> jest zablokowane.
+        Pozostały czas: <span id="lockoutTimer" class="lockout-timer">15:00</span>
+      </div>
+
       <form id="loginForm">
         <div class="form-group">
           <label for="loginUsername">Login:</label>
@@ -48,7 +54,7 @@
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-block">Zaloguj się</button>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">Zaloguj się</button>
       </form>
 
       <!-- Ściągawka z kontami testowymi dla wygody testowania -->
@@ -154,6 +160,12 @@
                 <input type="number" id="cfgValidity" min="0" max="365" required>
                 <small class="hint">0 = brak wygasania</small>
               </div>
+
+              <div class="form-group">
+                <label for="cfgMaxAttempts">Limit błędnych logowań:</label>
+                <input type="number" id="cfgMaxAttempts" min="0" max="20" step="1" required>
+                <small class="hint">Po przekroczeniu konto blokowane na 15 min (0 = wyłączone)</small>
+              </div>
             </div>
 
             <div class="form-group form-checkbox">
@@ -205,6 +217,7 @@
                   <th>Login</th>
                   <th>Rola</th>
                   <th>Status</th>
+                  <th>Błędne logowania</th>
                   <th>Wymusza zmianę</th>
                   <th>Ważność hasła jednorazowego</th>
                   <th>Akcje</th>
@@ -281,7 +294,7 @@
 
   </main>
 
-  <script src="js/app.js?v=4"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 
 </html>

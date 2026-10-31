@@ -420,6 +420,39 @@ h3 {
   flex-wrap: wrap;
 }
 
+/* Limit błędnych logowań: komunikat blokady na ekranie logowania */
+.lockout-box {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 12px 0 16px;
+  font-size: 0.9rem;
+  color: #991b1b;
+}
+
+.lockout-timer {
+  font-family: Consolas, monospace;
+  font-weight: 600;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.badge-locked {
+  background-color: #ffedd5;
+  color: #9a3412;
+}
+
+.lockout-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
 /* Klasa ukrywająca */
 .hidden {
   display: none !important;

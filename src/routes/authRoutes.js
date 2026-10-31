@@ -25,6 +25,18 @@ router.post('/login', async (req, res) => {
   const result = await authService.authenticateUser(username, password);
 
   if (!result.success) {
+    // Limit błędnych logowań: konto czasowo zablokowane - zwracamy pozostały czas blokady
+    if (result.locked) {
+      res.setHeader('Retry-After', String(result.remainingSeconds));
+      return res.status(423).json({
+        success: false,
+        error: 'ACCOUNT_LOCKED',
+        message: result.message,
+        lockedUntil: result.lockedUntil,
+        remainingSeconds: result.remainingSeconds
+      });
+    }
+
     return res.status(401).json({
       success: false,
       message: result.message
@@ -154,6 +166,7 @@ router.get('/test-accounts', (req, res) => {
  */
 router.post('/reset-database', (req, res) => {
   const data = db.resetToInitial();
+  authService.clearPhantomLockouts();
   res.json({
     success: true,
     message: 'Baza danych została zresetowana do 6 użytkowników początkowych.',

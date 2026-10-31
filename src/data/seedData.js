@@ -84,6 +84,9 @@ function getInitialSeedData() {
       mustChangePassword: u.mustChangePassword,
       temporaryPasswordExpiresAt: u.mustChangePassword ? expires24h : null,
       isBlocked: u.isBlocked,
+      // Limit błędnych logowań: licznik nieudanych prób i czas zakończenia blokady czasowej
+      failedLoginAttempts: 0,
+      lockedUntil: null,
       isPermanentAdmin: !!u.isPermanentAdmin,
       passwordChangedAt: now,
       createdAt: now

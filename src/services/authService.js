@@ -5,6 +5,80 @@ const db = require('../data/database');
 // Hash dummy do ochrony przed atakami czasowymi (timing attacks)
 const DUMMY_HASH = bcrypt.hashSync('DummyPassword123!', 10);
 
+const GENERIC_LOGIN_ERROR = 'Login lub hasło niepoprawne';
+
+/**
+ * Liczniki błędnych prób dla NIEISTNIEJĄCYCH loginów (tylko w pamięci).
+ * Dzięki temu nieistniejący login również "blokuje się" po przekroczeniu limitu,
+ * a ekran blokady nie zdradza atakującemu, czy dane konto istnieje.
+ */
+const phantomLockouts = new Map();
+const PHANTOM_MAX_ENTRIES = 10000;
+
+/**
+ * Zwraca parametry polityki blokady z konfiguracji
+ */
+function getLockoutPolicy(config) {
+  const maxAttempts = Number.isInteger(config.maxFailedLoginAttempts) ? config.maxFailedLoginAttempts : 5;
+  const durationMinutes = config.lockoutDurationMinutes || 15;
+  return {
+    enabled: maxAttempts > 0,
+    maxAttempts,
+    durationMs: durationMinutes * 60 * 1000
+  };
+}
+
+/**
+ * Buduje odpowiedź o aktywnej blokadzie czasowej konta
+ */
+function buildLockedResult(lockedUntilMs) {
+  const remainingSeconds = Math.max(1, Math.ceil((lockedUntilMs - Date.now()) / 1000));
+  const minutes = Math.ceil(remainingSeconds / 60);
+  return {
+    success: false,
+    locked: true,
+    lockedUntil: new Date(lockedUntilMs).toISOString(),
+    remainingSeconds,
+    message: `Przekroczono limit błędnych logowań. Konto jest tymczasowo zablokowane, pozostało ${minutes} min.`
+  };
+}
+
+/**
+ * Obsługa licznika dla nieistniejącego loginu (zachowanie identyczne jak dla istniejącego konta)
+ */
+function registerPhantomFailure(username, policy) {
+  if (!policy.enabled) return { success: false, message: GENERIC_LOGIN_ERROR };
+
+  const key = String(username || '').toLowerCase();
+  if (phantomLockouts.size > PHANTOM_MAX_ENTRIES) phantomLockouts.clear();
+
+  const entry = phantomLockouts.get(key) || { attempts: 0, lockedUntil: 0 };
+  entry.attempts += 1;
+
+  if (entry.attempts >= policy.maxAttempts) {
+    entry.attempts = 0;
+    entry.lockedUntil = Date.now() + policy.durationMs;
+    phantomLockouts.set(key, entry);
+    return buildLockedResult(entry.lockedUntil);
+  }
+
+  phantomLockouts.set(key, entry);
+  return { success: false, message: GENERIC_LOGIN_ERROR };
+}
+
+function getPhantomLock(username) {
+  const entry = phantomLockouts.get(String(username || '').toLowerCase());
+  if (entry && entry.lockedUntil > Date.now()) return entry.lockedUntil;
+  return null;
+}
+
+/**
+ * Czyści liczniki fantomowe (np. przy resecie bazy)
+ */
+function clearPhantomLockouts() {
+  phantomLockouts.clear();
+}
+
 /**
  * Generuje hasło jednorazowe zgodnie z Wariantem 5:
  * 14 znaków alfanumerycznych, losowane kryptograficznie
@@ -116,25 +190,54 @@ async function validatePasswordPolicy(newPassword, user, config) {
  */
 async function authenticateUser(username, password) {
   const user = db.getUserByUsername(username);
+  const policy = getLockoutPolicy(db.getConfig());
 
   // Zabezpieczenie przed atakami czasowymi (timing attack)
   // Gdy użytkownik nie istnieje, i tak wykonujemy bcrypt.compareSync
   if (!user) {
+    const phantomLock = policy.enabled ? getPhantomLock(username) : null;
+    if (phantomLock) {
+      return buildLockedResult(phantomLock);
+    }
     bcrypt.compareSync(password || '', DUMMY_HASH);
-    return {
-      success: false,
-      message: 'Login lub hasło niepoprawne'
-    };
+    return registerPhantomFailure(username, policy);
+  }
+
+  // Limit błędnych logowań: aktywna blokada czasowa sprawdzana PRZED weryfikacją hasła,
+  // aby w trakcie blokady nie dało się kontynuować zgadywania hasła
+  const lockedUntilMs = user.lockedUntil ? new Date(user.lockedUntil).getTime() : 0;
+  if (policy.enabled && lockedUntilMs > Date.now()) {
+    return buildLockedResult(lockedUntilMs);
   }
 
   // Weryfikacja hasła przez bcrypt
   const isPasswordValid = bcrypt.compareSync(password || '', user.passwordHash);
 
   if (!isPasswordValid) {
-    return {
-      success: false,
-      message: 'Login lub hasło niepoprawne'
-    };
+    if (!policy.enabled) {
+      return { success: false, message: GENERIC_LOGIN_ERROR };
+    }
+
+    // Po wygaśnięciu poprzedniej blokady licznik liczony jest od zera
+    const previousAttempts = lockedUntilMs ? 0 : (user.failedLoginAttempts || 0);
+    const attempts = previousAttempts + 1;
+
+    if (attempts >= policy.maxAttempts) {
+      const newLockedUntil = Date.now() + policy.durationMs;
+      db.updateUser(user.id, {
+        failedLoginAttempts: 0,
+        lockedUntil: new Date(newLockedUntil).toISOString()
+      });
+      return buildLockedResult(newLockedUntil);
+    }
+
+    db.updateUser(user.id, { failedLoginAttempts: attempts, lockedUntil: null });
+    return { success: false, message: GENERIC_LOGIN_ERROR };
+  }
+
+  // Poprawne hasło: zerowanie licznika błędnych prób
+  if (user.failedLoginAttempts || user.lockedUntil) {
+    db.updateUser(user.id, { failedLoginAttempts: 0, lockedUntil: null });
   }
 
   // Sprawdzenie blokady konta (dopiero po poprawnym uwierzytelnieniu, aby nie zdradzać istnienia loginu atakującemu)
@@ -225,5 +328,6 @@ module.exports = {
   checkHaveIBeenPwned,
   validatePasswordPolicy,
   authenticateUser,
-  changePassword
+  changePassword,
+  clearPhantomLockouts
 };

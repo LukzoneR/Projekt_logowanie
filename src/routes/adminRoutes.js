@@ -26,7 +26,9 @@ router.get('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => 
     temporaryPasswordExpiresAt: u.temporaryPasswordExpiresAt,
     passwordChangedAt: u.passwordChangedAt,
     createdAt: u.createdAt,
-    isPermanentAdmin: !!u.isPermanentAdmin
+    isPermanentAdmin: !!u.isPermanentAdmin,
+    failedLoginAttempts: u.failedLoginAttempts || 0,
+    lockedUntil: u.lockedUntil && new Date(u.lockedUntil).getTime() > Date.now() ? u.lockedUntil : null
   }));
 
   res.json({ success: true, users });
@@ -68,7 +70,9 @@ router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) =>
     mustChangePassword: true,
     temporaryPasswordExpiresAt: expiresAt,
     isBlocked: false,
-    isPermanentAdmin: false
+    isPermanentAdmin: false,
+    failedLoginAttempts: 0,
+    lockedUntil: null
   });
 
   res.status(201).json({
@@ -127,7 +131,13 @@ router.put('/users/:id/block', requirePermission(PERMISSIONS.USERS_MANAGE), (req
   }
 
   const newBlockState = !user.isBlocked;
-  db.updateUser(user.id, { isBlocked: newBlockState });
+  const blockUpdates = { isBlocked: newBlockState };
+  // Odblokowanie konta przez admina zeruje również licznik błędnych logowań
+  if (!newBlockState) {
+    blockUpdates.failedLoginAttempts = 0;
+    blockUpdates.lockedUntil = null;
+  }
+  db.updateUser(user.id, blockUpdates);
 
   // Jeśli zablokowano, natychmiast usuwamy aktywne sesje użytkownika
   if (newBlockState) {
@@ -138,6 +148,25 @@ router.put('/users/:id/block', requirePermission(PERMISSIONS.USERS_MANAGE), (req
     success: true,
     message: newBlockState ? 'Użytkownik został zablokowany.' : 'Użytkownik został odblokowany.',
     isBlocked: newBlockState
+  });
+});
+
+/**
+ * PUT /api/admin/users/:id/unlock
+ * Zdjęcie czasowej blokady (po przekroczeniu limitu błędnych logowań) przed upływem 15 minut
+ */
+router.put('/users/:id/unlock', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => {
+  const user = db.getUserById(req.params.id);
+
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'Użytkownik nie istnieje.' });
+  }
+
+  db.updateUser(user.id, { failedLoginAttempts: 0, lockedUntil: null });
+
+  res.json({
+    success: true,
+    message: `Zdjęto czasową blokadę konta "${user.username}".`
   });
 });
 
@@ -212,7 +241,8 @@ router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
     minPasswordLength,
     checkHaveIBeenPwned,
     passwordValidityDays,
-    sessionInactivityTimeoutMinutes
+    sessionInactivityTimeoutMinutes,
+    maxFailedLoginAttempts
   } = req.body;
 
   const updates = {};
@@ -233,6 +263,14 @@ router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
     updates.sessionInactivityTimeoutMinutes = sessionInactivityTimeoutMinutes;
   }
 
+  // Limit błędnych logowań (0 = funkcja wyłączona, maks. 20 prób)
+  if (maxFailedLoginAttempts !== undefined) {
+    if (!Number.isInteger(maxFailedLoginAttempts) || maxFailedLoginAttempts < 0 || maxFailedLoginAttempts > 20) {
+      return res.status(400).json({ success: false, message: 'Limit błędnych logowań musi być liczbą całkowitą od 0-20.' });
+    }
+    updates.maxFailedLoginAttempts = maxFailedLoginAttempts;
+  }
+
   const updatedConfig = db.updateConfig(updates);
   res.json({
     success: true,
@@ -247,6 +285,7 @@ router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
  */
 router.post('/reset-database', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
   const data = db.resetToInitial();
+  authService.clearPhantomLockouts();
   res.json({
     success: true,
     message: 'Baza danych została zresetowana do 6 użytkowników początkowych.',

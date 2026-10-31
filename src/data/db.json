@@ -36,7 +36,9 @@
       "isBlocked": false,
       "isPermanentAdmin": false,
       "passwordChangedAt": "2026-10-15T15:07:58.316Z",
-      "createdAt": "2026-10-15T15:07:58.316Z"
+      "createdAt": "2026-10-15T15:07:58.316Z",
+      "failedLoginAttempts": 0,
+      "lockedUntil": "2026-10-31T20:31:44.557Z"
     },
     {
       "id": "usr_pracownik2",

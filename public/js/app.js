@@ -5,12 +5,102 @@ let currentSessionTimeoutMinutes = 15;
 let lastUserActivityTimestamp = Date.now();
 let inactivityInterval = null;
 
+// --- Limit błędnych logowań: stan blokad czasowych (login -> znacznik końca blokady) ---
+const LOCKOUT_STORAGE_KEY = 'login_lockouts';
+let lockoutInterval = null;
+let lockoutShownFor = null;
+
 // --- Inicjalizacja po załadowaniu DOM ---
 document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   loadTestAccounts();
   checkExistingSession();
+  updateLockoutDisplay();
 });
+
+// --- Limit błędnych logowań: obsługa odliczania blokady na ekranie logowania ---
+function loadLockouts() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCKOUT_STORAGE_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveLockouts(lockouts) {
+  localStorage.setItem(LOCKOUT_STORAGE_KEY, JSON.stringify(lockouts));
+}
+
+function registerLockout(username, remainingSeconds) {
+  const lockouts = loadLockouts();
+  // Czas końca liczony względem zegara klienta (odporne na różnice zegarów klient/serwer)
+  lockouts[username.toLowerCase()] = Date.now() + remainingSeconds * 1000;
+  saveLockouts(lockouts);
+  updateLockoutDisplay();
+}
+
+function clearLockout(username) {
+  const lockouts = loadLockouts();
+  delete lockouts[(username || '').toLowerCase()];
+  saveLockouts(lockouts);
+  updateLockoutDisplay();
+}
+
+function formatCountdown(ms) {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function updateLockoutDisplay() {
+  const box = document.getElementById('lockoutBox');
+  const submitBtn = document.getElementById('loginSubmitBtn');
+  const usernameInput = document.getElementById('loginUsername');
+  if (!box || !submitBtn || !usernameInput) return;
+
+  const now = Date.now();
+  const lockouts = loadLockouts();
+
+  // Usuwanie wygasłych blokad
+  let changed = false;
+  Object.keys(lockouts).forEach(key => {
+    if (lockouts[key] <= now) {
+      delete lockouts[key];
+      changed = true;
+    }
+  });
+  if (changed) saveLockouts(lockouts);
+
+  const currentKey = usernameInput.value.trim().toLowerCase();
+  const lockedUntil = currentKey ? lockouts[currentKey] : null;
+
+  if (lockedUntil) {
+    const remainingMs = lockedUntil - now;
+    document.getElementById('lockoutUsername').textContent = usernameInput.value.trim();
+    document.getElementById('lockoutTimer').textContent = formatCountdown(remainingMs);
+    box.classList.remove('hidden');
+    submitBtn.disabled = true;
+    lockoutShownFor = currentKey;
+  } else {
+    // Blokada wyświetlanego konta właśnie wygasła
+    if (lockoutShownFor && lockoutShownFor === currentKey) {
+      showAlert('Blokada konta wygasła. Możesz ponownie się zalogować.', 'success', 5000);
+    }
+    lockoutShownFor = null;
+    box.classList.add('hidden');
+    submitBtn.disabled = false;
+  }
+
+  // Interwał działa tylko, gdy istnieją aktywne blokady
+  const hasActive = Object.keys(lockouts).length > 0;
+  if (hasActive && !lockoutInterval) {
+    lockoutInterval = setInterval(updateLockoutDisplay, 1000);
+  } else if (!hasActive && lockoutInterval) {
+    clearInterval(lockoutInterval);
+    lockoutInterval = null;
+  }
+}
 
 // --- Zarządzanie sesją w sessionStorage ---
 function getSessionToken() {
@@ -201,6 +291,8 @@ function updateNavUserInfo() {
 function initEventListeners() {
   // Formularz logowania
   document.getElementById('loginForm').addEventListener('submit', handleLogin);
+  // Zmiana loginu przełącza widok blokady (blokada dotyczy konkretnego konta)
+  document.getElementById('loginUsername').addEventListener('input', updateLockoutDisplay);
 
   // Formularz pierwszego logowania
   document.getElementById('firstLoginForm').addEventListener('submit', handleFirstLogin);
@@ -254,6 +346,12 @@ function initEventListeners() {
         return;
       }
 
+      const unlockBtn = e.target.closest('.btn-unlock-user');
+      if (unlockBtn) {
+        handleUnlockClick(unlockBtn.getAttribute('data-id'));
+        return;
+      }
+
       const deleteBtn = e.target.closest('.btn-delete-user');
       if (deleteBtn) {
         handleDeleteClick(deleteBtn.getAttribute('data-id'));
@@ -298,10 +396,19 @@ async function handleLogin(e) {
       body: JSON.stringify({ username, password })
     });
 
+    if (res.status === 423 && res.data.error === 'ACCOUNT_LOCKED') {
+      // Limit błędnych logowań przekroczony: pokaż odliczanie pozostałego czasu blokady
+      document.getElementById('loginPassword').value = '';
+      registerLockout(username, res.data.remainingSeconds || 900);
+      return;
+    }
+
     if (!res.ok) {
       showAlert(res.data.message || 'Login lub hasło niepoprawne', 'error');
       return;
     }
+
+    clearLockout(username);
 
     setSessionToken(res.data.sessionId);
     currentUser = res.data.user;
@@ -473,13 +580,13 @@ async function loadProfileData() {
       currentSessionTimeoutMinutes = res.data.sessionTimeoutMinutes || 15;
 
       document.getElementById('profUsername').textContent = currentUser.username;
-      
+
       const roleBadge = document.getElementById('profRole');
       roleBadge.textContent = currentUser.role;
       roleBadge.className = `badge badge-${currentUser.role.toLowerCase()}`;
 
-      document.getElementById('profPassDate').textContent = currentUser.passwordChangedAt 
-        ? new Date(currentUser.passwordChangedAt).toLocaleString() 
+      document.getElementById('profPassDate').textContent = currentUser.passwordChangedAt
+        ? new Date(currentUser.passwordChangedAt).toLocaleString()
         : 'Brak danych';
 
       const permList = document.getElementById('profPermissionsList');
@@ -580,12 +687,12 @@ function showAdminUsersAlert(message, type = 'success', durationMs = 6000) {
 
 async function loadAdminUsers() {
   const tbody = document.getElementById('adminUsersTbody');
-  tbody.innerHTML = '<tr><td colspan="6">Pobieranie użytkowników...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7">Pobieranie użytkowników...</td></tr>';
 
   try {
     const res = await apiFetch('/api/admin/users');
     if (!res.ok) {
-      tbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${res.data.message || 'Błąd'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="alert alert-error">${res.data.message || 'Błąd'}</td></tr>`;
       return;
     }
 
@@ -603,9 +710,21 @@ async function loadAdminUsers() {
       if (u.mustChangePassword && u.temporaryPasswordExpiresAt) {
         const expDate = new Date(u.temporaryPasswordExpiresAt);
         const isExpired = Date.now() > expDate.getTime();
-        tempExpText = isExpired 
+        tempExpText = isExpired
           ? `<span style="color: #dc2626; font-weight: bold;">Wygasło (${expDate.toLocaleTimeString()})</span>`
           : expDate.toLocaleString();
+      }
+
+      // Limit błędnych logowań: stan licznika i blokady czasowej
+      let lockoutCell = `${u.failedLoginAttempts || 0}`;
+      if (u.lockedUntil) {
+        const remaining = new Date(u.lockedUntil).getTime() - Date.now();
+        lockoutCell = `
+          <span class="badge badge-locked" title="Blokada do ${new Date(u.lockedUntil).toLocaleTimeString()}">
+            Zablokowane ~${Math.max(1, Math.ceil(remaining / 60000))} min
+          </span>
+          <button class="btn btn-sm btn-secondary btn-unlock-user" data-id="${u.id}" title="Zdejmij czasową blokadę przed upływem 15 min">Zdejmij blokadę</button>
+        `;
       }
 
       tr.innerHTML = `
@@ -622,6 +741,7 @@ async function loadAdminUsers() {
             ${u.isBlocked ? 'Zablokowany' : 'Aktywny'}
           </span>
         </td>
+        <td><div class="lockout-cell">${lockoutCell}</div></td>
         <td>${u.mustChangePassword ? '<span style="color:#d97706; font-weight:600;">Tak</span>' : 'Nie'}</td>
         <td><small>${tempExpText}</small></td>
         <td>
@@ -645,7 +765,7 @@ async function loadAdminUsers() {
     });
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="alert alert-error">${err.message}</td></tr>`;
   }
 }
 
@@ -683,6 +803,25 @@ async function handleBlockToggle(userId) {
     showAdminUsersAlert(res.data.message, 'success', 3000);
     loadAdminUsers();
     loadTestAccounts();
+  } catch (err) {
+    showAdminUsersAlert(err.message, 'error');
+  }
+}
+
+async function handleUnlockClick(userId) {
+  try {
+    const res = await apiFetch(`/api/admin/users/${userId}/unlock`, { method: 'PUT' });
+
+    if (!res.ok) {
+      showAdminUsersAlert(res.data.message || 'Błąd zdejmowania blokady', 'error');
+      return;
+    }
+
+    const user = currentAdminUsers.find(u => u.id === userId);
+    if (user) clearLockout(user.username);
+
+    showAdminUsersAlert(res.data.message, 'success', 3000);
+    loadAdminUsers();
   } catch (err) {
     showAdminUsersAlert(err.message, 'error');
   }
@@ -822,6 +961,7 @@ async function loadAdminPolicy() {
       document.getElementById('cfgTimeout').value = cfg.sessionInactivityTimeoutMinutes || 15;
       document.getElementById('cfgValidity').value = cfg.passwordValidityDays || 90;
       document.getElementById('cfgHibp').checked = !!cfg.checkHaveIBeenPwned;
+      document.getElementById('cfgMaxAttempts').value = cfg.maxFailedLoginAttempts ?? 5;
     }
   } catch (err) {
     console.error('Błąd pobierania polityki:', err);
@@ -835,6 +975,7 @@ async function handleUpdatePolicy(e) {
   const sessionInactivityTimeoutMinutes = parseInt(document.getElementById('cfgTimeout').value, 10);
   const passwordValidityDays = parseInt(document.getElementById('cfgValidity').value, 10);
   const checkHaveIBeenPwned = document.getElementById('cfgHibp').checked;
+  const maxFailedLoginAttempts = parseInt(document.getElementById('cfgMaxAttempts').value, 10);
 
   try {
     const res = await apiFetch('/api/admin/policy', {
@@ -843,7 +984,8 @@ async function handleUpdatePolicy(e) {
         minPasswordLength,
         sessionInactivityTimeoutMinutes,
         passwordValidityDays,
-        checkHaveIBeenPwned
+        checkHaveIBeenPwned,
+        maxFailedLoginAttempts
       })
     });
 
@@ -865,6 +1007,8 @@ async function handleResetDatabase() {
     const data = await res.json();
     if (res.ok) {
       showAdminUsersAlert('Baza danych została pomyślnie zresetowana do 6 kont testowych.', 'success', 5000);
+      localStorage.removeItem(LOCKOUT_STORAGE_KEY);
+      updateLockoutDisplay();
       loadAdminUsers();
       loadTestAccounts();
       loadAdminPolicy();
@@ -912,6 +1056,7 @@ async function loadTestAccounts() {
         const p = e.currentTarget.getAttribute('data-pass');
         document.getElementById('loginUsername').value = u;
         document.getElementById('loginPassword').value = p;
+        updateLockoutDisplay();
       });
     });
   } catch (err) {

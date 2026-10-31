@@ -12,6 +12,10 @@ module.exports = {
     sessionInactivityTimeoutMinutes: 15,
     // Hasło jednorazowe: 14 znaków alfanumerycznych, ważne 24 h
     oneTimePasswordLength: 14,
-    oneTimePasswordValidityHours: 24
+    oneTimePasswordValidityHours: 24,
+    // Limit błędnych logowań (konfigurowalny przez admina, 0 = wyłączony)
+    maxFailedLoginAttempts: 5,
+    // Czas czasowej blokady konta po przekroczeniu limitu (stałe 15 minut)
+    lockoutDurationMinutes: 15
   }
 };

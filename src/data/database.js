@@ -44,7 +44,7 @@ class Database {
   // --- Konfiguracja / Polityka ---
   getConfig() {
     const data = this._read();
-    return data.config || { ...DEFAULT_CONFIG };
+    return { ...DEFAULT_CONFIG, ...(data.config || {}) };
   }
 
   updateConfig(updates) {
