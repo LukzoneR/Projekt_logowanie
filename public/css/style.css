@@ -453,6 +453,12 @@ h3 {
   align-items: center;
 }
 
+.recaptcha-wrapper {
+  margin: 14px 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
 /* Klasa ukrywająca */
 .hidden {
   display: none !important;

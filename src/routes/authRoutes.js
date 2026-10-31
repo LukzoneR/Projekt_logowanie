@@ -13,7 +13,16 @@ const { RAW_TEST_USERS } = require('../data/seedData');
  * Zabezpieczone: jednakowy komunikat błędu "Login lub hasło niepoprawne"
  */
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, recaptchaToken } = req.body;
+
+  // Weryfikacja Google reCAPTCHA przy logowaniu
+  const captchaCheck = await authService.verifyRecaptcha(recaptchaToken);
+  if (!captchaCheck.success) {
+    return res.status(400).json({
+      success: false,
+      message: captchaCheck.message
+    });
+  }
 
   if (!username || !password) {
     return res.status(400).json({
@@ -99,7 +108,17 @@ router.get('/me', sessionMiddleware, (req, res) => {
  * Zmiana hasła (zarówno przy pierwszym logowaniu, jak i regularna zmiana)
  */
 router.post('/change-password', sessionMiddleware, async (req, res) => {
-  const { oldPassword, newPassword, confirmPassword } = req.body;
+  const { oldPassword, newPassword, confirmPassword, recaptchaToken } = req.body;
+
+  // Weryfikacja Google reCAPTCHA przy zmianie hasła
+  const captchaCheck = await authService.verifyRecaptcha(recaptchaToken);
+  if (!captchaCheck.success) {
+    return res.status(400).json({
+      success: false,
+      errors: [captchaCheck.message]
+    });
+  }
+
   const isFirstLogin = req.user.mustChangePassword;
 
   const result = await authService.changePassword({

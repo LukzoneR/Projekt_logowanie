@@ -1,6 +1,97 @@
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('../data/database');
+const { RECAPTCHA_SECRET_KEY } = require('../config/config');
+
+// Pamięć podręczna zużytych tokenów w celu zagwarantowania jednorazowości wyzwania
+const usedRecaptchaTokens = new Map();
+const RECAPTCHA_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minuty ważności
+
+function cleanExpiredRecaptchaTokens() {
+  const now = Date.now();
+  for (const [token, expiry] of usedRecaptchaTokens.entries()) {
+    if (expiry <= now) {
+      usedRecaptchaTokens.delete(token);
+    }
+  }
+}
+
+/**
+ * Weryfikacja tokenu Google reCAPTCHA
+ * Każde wyzwanie jest jednorazowe i ma ograniczony czas ważności (2 minuty).
+ * @param {string} token
+ * @returns {Promise<{ success: boolean, message?: string }>}
+ */
+async function verifyRecaptcha(token) {
+  if (!token || typeof token !== 'string' || !token.trim()) {
+    return {
+      success: false,
+      message: 'Wymagane jest potwierdzenie reCAPTCHA.'
+    };
+  }
+
+  const cleanToken = token.trim();
+
+  // Sprawdzenie jednorazowości tokenu
+  cleanExpiredRecaptchaTokens();
+  if (usedRecaptchaTokens.has(cleanToken)) {
+    return {
+      success: false,
+      message: 'Wyzwanie reCAPTCHA zostało już wykorzystane. Zaznacz pole ponownie.'
+    };
+  }
+
+  try {
+    const params = new URLSearchParams();
+    params.append('secret', RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe');
+    params.append('response', cleanToken);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.warn('Ostrzeżenie: Serwer Google reCAPTCHA zwrócił kod', response.status);
+      return {
+        success: false,
+        message: 'Błąd weryfikacji reCAPTCHA. Spróbuj ponownie.'
+      };
+    }
+
+    const data = await response.json();
+    if (data.success) {
+      // Oznaczenie tokenu jako zużytego (jednorazowość wyzwania)
+      usedRecaptchaTokens.set(cleanToken, Date.now() + RECAPTCHA_TOKEN_TTL_MS);
+      return { success: true };
+    }
+
+    const errorCodes = data['error-codes'] || [];
+    if (errorCodes.includes('timeout-or-duplicate')) {
+      return {
+        success: false,
+        message: 'Wyzwanie reCAPTCHA wygasło lub zostało już wykorzystane. Rozwiąż test ponownie.'
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Weryfikacja reCAPTCHA nie powiodła się. Zaznacz pole ponownie.'
+    };
+  } catch (err) {
+    console.error('Błąd połączenia z Google reCAPTCHA:', err.message);
+    return {
+      success: false,
+      message: 'Błąd połączenia z serwerem reCAPTCHA.'
+    };
+  }
+}
 
 // Hash dummy do ochrony przed atakami czasowymi (timing attacks)
 const DUMMY_HASH = bcrypt.hashSync('DummyPassword123!', 10);
@@ -329,5 +420,6 @@ module.exports = {
   validatePasswordPolicy,
   authenticateUser,
   changePassword,
-  clearPhantomLockouts
+  clearPhantomLockouts,
+  verifyRecaptcha
 };

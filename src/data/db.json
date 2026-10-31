@@ -5,101 +5,112 @@
     "passwordValidityDays": 90,
     "sessionInactivityTimeoutMinutes": 15,
     "oneTimePasswordLength": 14,
-    "oneTimePasswordValidityHours": 24
+    "oneTimePasswordValidityHours": 24,
+    "maxFailedLoginAttempts": 5,
+    "lockoutDurationMinutes": 15
   },
   "users": [
     {
       "id": "usr_admin",
       "username": "admin",
-      "passwordHash": "$2b$10$yHkujDO0Jd5VYGE3dvpyTusdASOG5z5x/DN/GEEYvGaD7VxR2JBia",
+      "passwordHash": "$2b$10$am.iDO09y/.0J6xLPKHxxeg9/dCZdS7CO.LaqhYq81XBH0Q.Dmtou",
       "passwordHistory": [
-        "$2b$10$yHkujDO0Jd5VYGE3dvpyTusdASOG5z5x/DN/GEEYvGaD7VxR2JBia"
+        "$2b$10$am.iDO09y/.0J6xLPKHxxeg9/dCZdS7CO.LaqhYq81XBH0Q.Dmtou"
       ],
       "role": "Administrator",
       "mustChangePassword": false,
       "temporaryPasswordExpiresAt": null,
       "isBlocked": false,
+      "failedLoginAttempts": 0,
+      "lockedUntil": null,
       "isPermanentAdmin": true,
-      "passwordChangedAt": "2026-10-15T15:07:58.316Z",
-      "createdAt": "2026-10-15T15:07:58.316Z"
+      "passwordChangedAt": "2026-10-31T20:50:14.808Z",
+      "createdAt": "2026-10-31T20:50:14.808Z"
     },
     {
       "id": "usr_pracownik1",
       "username": "pracownik1",
-      "passwordHash": "$2b$10$HO9LCy4xRAuK4lbbSXHqCOr2sbQLhbtJMCi3WjBmlaMFGKFgxan8e",
+      "passwordHash": "$2b$10$66CFPj6CQeMypr/mncAFLeNpi4Z9cCr7Nl4tbpQekyD4P4LsvdICe",
       "passwordHistory": [
-        "$2b$10$Bfd/zsrG4jLbV1nwtRh/3u0XH4FM6z8TRB97UvWA4uQ16d4FJP8D."
+        "$2b$10$66CFPj6CQeMypr/mncAFLeNpi4Z9cCr7Nl4tbpQekyD4P4LsvdICe"
       ],
       "role": "Pracownik",
       "mustChangePassword": true,
-      "temporaryPasswordExpiresAt": "2026-10-19T13:34:09.520Z",
+      "temporaryPasswordExpiresAt": "2026-11-01T20:50:14.808Z",
       "isBlocked": false,
-      "isPermanentAdmin": false,
-      "passwordChangedAt": "2026-10-15T15:07:58.316Z",
-      "createdAt": "2026-10-15T15:07:58.316Z",
       "failedLoginAttempts": 0,
-      "lockedUntil": "2026-10-31T20:31:44.557Z"
+      "lockedUntil": null,
+      "isPermanentAdmin": false,
+      "passwordChangedAt": "2026-10-31T20:50:14.808Z",
+      "createdAt": "2026-10-31T20:50:14.808Z"
     },
     {
       "id": "usr_pracownik2",
       "username": "pracownik2",
-      "passwordHash": "$2b$10$.iUxkulcWBNuuVzLaVMzuemM0wMfbdbuz1dDZ4aQzAQaHpdel.Q4e",
+      "passwordHash": "$2b$10$Ug7GpNtN0HjSM4qeuKZ72enxdqaDyq7gB0MlhufA6luc4yOlSe0BC",
       "passwordHistory": [
-        "$2b$10$.iUxkulcWBNuuVzLaVMzuemM0wMfbdbuz1dDZ4aQzAQaHpdel.Q4e"
+        "$2b$10$Ug7GpNtN0HjSM4qeuKZ72enxdqaDyq7gB0MlhufA6luc4yOlSe0BC"
       ],
       "role": "Pracownik",
       "mustChangePassword": false,
       "temporaryPasswordExpiresAt": null,
       "isBlocked": false,
+      "failedLoginAttempts": 0,
+      "lockedUntil": null,
       "isPermanentAdmin": false,
-      "passwordChangedAt": "2026-10-15T15:07:58.316Z",
-      "createdAt": "2026-10-15T15:07:58.316Z"
+      "passwordChangedAt": "2026-10-31T20:50:14.808Z",
+      "createdAt": "2026-10-31T20:50:14.808Z"
     },
     {
       "id": "usr_gosc1",
       "username": "gosc1",
-      "passwordHash": "$2b$10$ObRG6/eiQgi98/N4XOdk7eODoMwsIcaxVsP0mWQF4iK7j4KOrE09e",
+      "passwordHash": "$2b$10$Nh.N8ac2DOBeIrFlqFv5P.u.5t0nHxPzUtKAz2Ac5xCUtKSsW/HFC",
       "passwordHistory": [
-        "$2b$10$ObRG6/eiQgi98/N4XOdk7eODoMwsIcaxVsP0mWQF4iK7j4KOrE09e"
+        "$2b$10$Nh.N8ac2DOBeIrFlqFv5P.u.5t0nHxPzUtKAz2Ac5xCUtKSsW/HFC"
       ],
       "role": "Gość",
       "mustChangePassword": false,
       "temporaryPasswordExpiresAt": null,
       "isBlocked": false,
+      "failedLoginAttempts": 0,
+      "lockedUntil": null,
       "isPermanentAdmin": false,
-      "passwordChangedAt": "2026-10-15T15:07:58.316Z",
-      "createdAt": "2026-10-15T15:07:58.316Z"
+      "passwordChangedAt": "2026-10-31T20:50:14.808Z",
+      "createdAt": "2026-10-31T20:50:14.808Z"
     },
     {
       "id": "usr_gosc2",
       "username": "gosc2",
-      "passwordHash": "$2b$10$xSsXVHbmOVeGv5q.9IaXLeXHgDab5kYUA4XHgabP0aNvQQq4qBglu",
+      "passwordHash": "$2b$10$SgL/u/NhZ58XF8pOrzGK.uIgfxkcsounil7qXa8chRPCT6100WbZi",
       "passwordHistory": [
-        "$2b$10$ckrRj6hCDR3XNLIu3xjkEeHBKGae9Duyya0GxvPruvWVXHHkqtOka",
-        "$2b$10$xSsXVHbmOVeGv5q.9IaXLeXHgDab5kYUA4XHgabP0aNvQQq4qBglu"
+        "$2b$10$SgL/u/NhZ58XF8pOrzGK.uIgfxkcsounil7qXa8chRPCT6100WbZi"
       ],
       "role": "Gość",
-      "mustChangePassword": false,
-      "temporaryPasswordExpiresAt": null,
+      "mustChangePassword": true,
+      "temporaryPasswordExpiresAt": "2026-11-01T20:50:14.808Z",
       "isBlocked": false,
+      "failedLoginAttempts": 0,
+      "lockedUntil": null,
       "isPermanentAdmin": false,
-      "passwordChangedAt": "2026-10-15T15:17:32.759Z",
-      "createdAt": "2026-10-15T15:07:58.316Z"
+      "passwordChangedAt": "2026-10-31T20:50:14.808Z",
+      "createdAt": "2026-10-31T20:50:14.808Z"
     },
     {
       "id": "usr_zablokowany",
       "username": "zablokowany",
-      "passwordHash": "$2b$10$9JRw3m5LIQQ9mHo/CSEOo.kgLKcCwZxLNihuD8BzjZnvdENKGb7K2",
+      "passwordHash": "$2b$10$5YJWJb/lstO2gvU/0dEEsu/7QvAPWb7Ee0Y6ZHgZOmHFCteYz2RgG",
       "passwordHistory": [
-        "$2b$10$9JRw3m5LIQQ9mHo/CSEOo.kgLKcCwZxLNihuD8BzjZnvdENKGb7K2"
+        "$2b$10$5YJWJb/lstO2gvU/0dEEsu/7QvAPWb7Ee0Y6ZHgZOmHFCteYz2RgG"
       ],
       "role": "Gość",
       "mustChangePassword": false,
       "temporaryPasswordExpiresAt": null,
       "isBlocked": true,
+      "failedLoginAttempts": 0,
+      "lockedUntil": null,
       "isPermanentAdmin": false,
-      "passwordChangedAt": "2026-10-15T15:07:58.316Z",
-      "createdAt": "2026-10-15T15:07:58.316Z"
+      "passwordChangedAt": "2026-10-31T20:50:14.808Z",
+      "createdAt": "2026-10-31T20:50:14.808Z"
     }
   ]
 }

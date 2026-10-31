@@ -10,6 +10,80 @@ const LOCKOUT_STORAGE_KEY = 'login_lockouts';
 let lockoutInterval = null;
 let lockoutShownFor = null;
 
+// --- Google reCAPTCHA v2 (klucz testowy) ---
+const RECAPTCHA_SITE_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+let loginCaptchaWidgetId = null;
+let firstLoginCaptchaWidgetId = null;
+let changePassCaptchaWidgetId = null;
+
+function renderRecaptchas() {
+  if (typeof grecaptcha === 'undefined' || !grecaptcha.render) return;
+
+  const loginEl = document.getElementById('recaptcha-login');
+  if (loginEl && loginCaptchaWidgetId === null && !loginEl.closest('.hidden')) {
+    try {
+      loginCaptchaWidgetId = grecaptcha.render(loginEl, { sitekey: RECAPTCHA_SITE_KEY });
+    } catch (e) { }
+  }
+
+  const firstLoginEl = document.getElementById('recaptcha-first-login');
+  if (firstLoginEl && firstLoginCaptchaWidgetId === null && !firstLoginEl.closest('.hidden')) {
+    try {
+      firstLoginCaptchaWidgetId = grecaptcha.render(firstLoginEl, { sitekey: RECAPTCHA_SITE_KEY });
+    } catch (e) { }
+  }
+
+  const changePassEl = document.getElementById('recaptcha-change-pass');
+  if (changePassEl && changePassCaptchaWidgetId === null && !changePassEl.closest('.hidden')) {
+    try {
+      changePassCaptchaWidgetId = grecaptcha.render(changePassEl, { sitekey: RECAPTCHA_SITE_KEY });
+    } catch (e) { }
+  }
+}
+
+window.initRecaptchas = function () {
+  renderRecaptchas();
+};
+
+function getLoginRecaptchaToken() {
+  if (typeof grecaptcha !== 'undefined' && loginCaptchaWidgetId !== null) {
+    return grecaptcha.getResponse(loginCaptchaWidgetId);
+  }
+  return '';
+}
+
+function resetLoginRecaptcha() {
+  if (typeof grecaptcha !== 'undefined' && loginCaptchaWidgetId !== null) {
+    try { grecaptcha.reset(loginCaptchaWidgetId); } catch (e) { }
+  }
+}
+
+function getFirstLoginRecaptchaToken() {
+  if (typeof grecaptcha !== 'undefined' && firstLoginCaptchaWidgetId !== null) {
+    return grecaptcha.getResponse(firstLoginCaptchaWidgetId);
+  }
+  return '';
+}
+
+function resetFirstLoginRecaptcha() {
+  if (typeof grecaptcha !== 'undefined' && firstLoginCaptchaWidgetId !== null) {
+    try { grecaptcha.reset(firstLoginCaptchaWidgetId); } catch (e) { }
+  }
+}
+
+function getChangePassRecaptchaToken() {
+  if (typeof grecaptcha !== 'undefined' && changePassCaptchaWidgetId !== null) {
+    return grecaptcha.getResponse(changePassCaptchaWidgetId);
+  }
+  return '';
+}
+
+function resetChangePassRecaptcha() {
+  if (typeof grecaptcha !== 'undefined' && changePassCaptchaWidgetId !== null) {
+    try { grecaptcha.reset(changePassCaptchaWidgetId); } catch (e) { }
+  }
+}
+
 // --- Inicjalizacja po załadowaniu DOM ---
 document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
@@ -201,6 +275,9 @@ function showView(viewName) {
     updateNavUserInfo();
     startInactivityTracking();
   }
+
+  // Odświeżenie widżetów reCAPTCHA w widocznym widoku
+  setTimeout(renderRecaptchas, 50);
 }
 
 // --- Wyświetlanie powiadomień ---
@@ -389,12 +466,21 @@ async function handleLogin(e) {
 
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
+  const recaptchaToken = getLoginRecaptchaToken();
+
+  if (!recaptchaToken) {
+    showAlert('Potwierdź, że nie jesteś robotem.', 'error');
+    return;
+  }
 
   try {
     const res = await apiFetch('/api/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, recaptchaToken })
     });
+
+    // Każde wyzwanie reCAPTCHA jest jednorazowe - resetujemy stan widżetu
+    resetLoginRecaptcha();
 
     if (res.status === 423 && res.data.error === 'ACCOUNT_LOCKED') {
       // Limit błędnych logowań przekroczony: pokaż odliczanie pozostałego czasu blokady
@@ -455,6 +541,12 @@ async function handleFirstLogin(e) {
 
   const newPassword = document.getElementById('firstNewPass').value;
   const confirmPassword = document.getElementById('firstConfirmPass').value;
+  const recaptchaToken = getFirstLoginRecaptchaToken();
+
+  if (!recaptchaToken) {
+    showAlert('Potwierdź, że nie jesteś robotem.', 'error');
+    return;
+  }
 
   if (newPassword !== confirmPassword) {
     showAlert('Wprowadzone hasła nie są identyczne.', 'error');
@@ -464,8 +556,11 @@ async function handleFirstLogin(e) {
   try {
     const res = await apiFetch('/api/change-password', {
       method: 'POST',
-      body: JSON.stringify({ newPassword, confirmPassword })
+      body: JSON.stringify({ newPassword, confirmPassword, recaptchaToken })
     });
+
+    // Resetowanie wyzwania reCAPTCHA (jednorazowość wyzwania)
+    resetFirstLoginRecaptcha();
 
     if (!res.ok) {
       showAlert(res.data.errors || 'Błąd zmiany hasła.', 'error');
@@ -491,6 +586,12 @@ async function handleChangePassword(e) {
   const oldPassword = document.getElementById('changeOldPass').value;
   const newPassword = document.getElementById('changeNewPass').value;
   const confirmPassword = document.getElementById('changeConfirmPass').value;
+  const recaptchaToken = getChangePassRecaptchaToken();
+
+  if (!recaptchaToken) {
+    showAlert('Potwierdź, że nie jesteś robotem.', 'error');
+    return;
+  }
 
   if (newPassword !== confirmPassword) {
     showAlert('Wprowadzone hasła nie są identyczne.', 'error');
@@ -500,8 +601,11 @@ async function handleChangePassword(e) {
   try {
     const res = await apiFetch('/api/change-password', {
       method: 'POST',
-      body: JSON.stringify({ oldPassword, newPassword, confirmPassword })
+      body: JSON.stringify({ oldPassword, newPassword, confirmPassword, recaptchaToken })
     });
+
+    // Resetowanie wyzwania reCAPTCHA (jednorazowość wyzwania)
+    resetChangePassRecaptcha();
 
     if (!res.ok) {
       showAlert(res.data.errors || 'Błąd zmiany hasła.', 'error');
@@ -559,6 +663,9 @@ function switchTab(tabId) {
     content.classList.toggle('hidden', content.id !== tabId);
     content.classList.toggle('active', content.id === tabId);
   });
+
+  // Odświeżenie widżetów reCAPTCHA w widocznej zakładce
+  setTimeout(renderRecaptchas, 50);
 
   if (tabId === 'tabEmployee') {
     loadEmployeeData();
