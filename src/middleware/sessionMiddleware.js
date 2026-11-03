@@ -5,7 +5,6 @@ const db = require('../data/database');
  * Middleware weryfikacji sesji i bezczynności
  */
 function sessionMiddleware(req, res, next) {
-  // Pobranie identyfikatora sesji z nagłówka Authorization lub x-session-id
   let sessionId = null;
   const authHeader = req.headers['authorization'];
   if (authHeader && authHeader.startsWith('Bearer ')) {

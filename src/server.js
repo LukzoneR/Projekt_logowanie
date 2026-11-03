@@ -19,10 +19,8 @@ if (config.RECAPTCHA_USING_TEST_KEYS) {
 
 const app = express();
 
-// Parsowanie JSON
 app.use(express.json());
 
-// Obsługa plików statycznych (frontend)
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -34,10 +32,10 @@ app.use('/api', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/resources', resourceRoutes);
 
-// Canarytokens (przynęty) - przed fallbackiem SPA, który przechwyciłby te ścieżki
+// Canarytokens
 app.use(canaryRoutes);
 
-// Fallback dla SPA - serwowanie index.html
+// Fallback SPA
 app.use((req, res, next) => {
   if (req.method === 'GET' && !req.path.startsWith('/api')) {
     return res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

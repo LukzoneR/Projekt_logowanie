@@ -6,7 +6,7 @@ const { directory, fileName } = canaryService.DB_DUMP;
 
 /**
  * GET /backup/
- * Imitacja listingu katalogu serwera (autoindex) - prowadzi do przynęty
+ * Imitacja listingu katalogu serwera
  */
 router.get(`${directory}/`, (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
@@ -21,12 +21,11 @@ router.get(`${directory}/`, (req, res) => {
 
 /**
  * GET /backup/db_backup_2026-10-28.sql
- * Canarytoken: fałszywy zrzut bazy - każde pobranie wyzwala alert
+ * Canarytoken: fałszywy zrzut bazy
  */
 router.get(`${directory}/${fileName}`, (req, res) => {
   canaryService.handleDbDumpAccess(req);
-  // Wyświetlenie inline jako tekst: przeglądarki potrafią blokować pobieranie plików .sql,
-  // a no-store gwarantuje, że każde otwarcie trafia do serwera i wyzwala alert
+  // Wyświetlenie inline jako tekst
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
   res.type('text/plain').send(canaryService.buildDbDumpContent());

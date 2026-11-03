@@ -9,8 +9,7 @@ router.use(requirePasswordChanged);
 
 /**
  * GET /api/employee/data
- * Strefa pracownika (wymaga uprawnienia employee:access)
- * Dostępne dla: Administrator, Pracownik
+ * Strefa pracownika
  */
 router.get('/employee/data', requirePermission(PERMISSIONS.EMPLOYEE_ACCESS), (req, res) => {
   res.json({
@@ -28,8 +27,7 @@ router.get('/employee/data', requirePermission(PERMISSIONS.EMPLOYEE_ACCESS), (re
 
 /**
  * GET /api/guest/data
- * Strefa gościa (wymaga uprawnienia guest:access)
- * Dostępne dla: Administrator, Pracownik, Gość
+* Strefa gościa
  */
 router.get('/guest/data', requirePermission(PERMISSIONS.GUEST_ACCESS), (req, res) => {
   res.json({

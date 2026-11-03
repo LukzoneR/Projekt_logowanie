@@ -10,7 +10,6 @@ const crypto = require('crypto');
  */
 class SessionService {
   constructor() {
-    // Mapa: sessionId -> sessionData
     this.sessions = new Map();
   }
 
@@ -52,19 +51,17 @@ class SessionService {
     const now = Date.now();
     const timeoutMs = timeoutMinutes * 60 * 1000;
 
-    // Sprawdzenie bezczynności
     if (now - session.lastActivity > timeoutMs) {
       this.sessions.delete(sessionId);
       return { valid: false, expired: true };
     }
 
-    // Aktualizacja czasu ostatniej aktywności
     session.lastActivity = now;
     return { valid: true, session };
   }
 
   /**
-   * Unieważnia (usuwa) pojedynczą sesję przy wylogowaniu
+   * Unieważnia pojedynczą sesję przy wylogowaniu
    * @param {string} sessionId 
    * @returns {boolean}
    */
@@ -74,7 +71,7 @@ class SessionService {
   }
 
   /**
-   * Unieważnia wszystkie sesje danego użytkownika (np. przy blokadzie konta)
+   * Unieważnia wszystkie sesje danego użytkownika
    * @param {string} userId 
    */
   destroyUserSessions(userId) {
@@ -86,7 +83,7 @@ class SessionService {
   }
 
   /**
-   * Aktualizuje dane w sesji (np. po zmianie hasła)
+   * Aktualizuje dane w sesji
    * @param {string} sessionId 
    * @param {Object} updates 
    */

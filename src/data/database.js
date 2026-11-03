@@ -115,7 +115,7 @@ class Database {
   }
 
   /**
-   * Resetuje bazę do stanu początkowego (przydatne do testów)
+   * Resetuje bazę do stanu początkowego
    */
   resetToInitial() {
     const initial = getInitialSeedData();

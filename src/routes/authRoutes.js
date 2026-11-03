@@ -11,7 +11,7 @@ const { RECAPTCHA_SITE_KEY } = require('../config/config');
 
 /**
  * GET /api/recaptcha-config
- * Publiczny klucz witryny reCAPTCHA dla frontendu (klucz tajny nigdy nie opuszcza serwera)
+ * Publiczny klucz witryny reCAPTCHA dla frontendu
  */
 router.get('/recaptcha-config', (req, res) => {
   res.json({ siteKey: RECAPTCHA_SITE_KEY });
@@ -20,13 +20,12 @@ router.get('/recaptcha-config', (req, res) => {
 /**
  * POST /api/login
  * Logowanie użytkownika
- * Zabezpieczone: jednakowy komunikat błędu "Login lub hasło niepoprawne"
- */
+ */ 
 router.post('/login', async (req, res) => {
   const { username, password, website, recaptchaToken } = req.body;
 
   // Canarytoken: konto-pułapka. Alert wyzwalany jest przed pozostałymi sprawdzeniami,
-  // a dalsza obsługa przebiega jak dla nieistniejącego loginu (identyczna odpowiedź i czas).
+  // a dalsza obsługa przebiega jak dla nieistniejącego loginu.
   if (canaryService.isHoneyAccount(username)) {
     canaryService.handleHoneyAccountLogin(req, password);
   }
@@ -60,7 +59,7 @@ router.post('/login', async (req, res) => {
   const result = await authService.authenticateUser(username, password);
 
   if (!result.success) {
-    // Limit błędnych logowań: konto czasowo zablokowane - zwracamy pozostały czas blokady
+    // Limit błędnych logowań: konto czasowo zablokowane
     if (result.locked) {
       res.setHeader('Retry-After', String(result.remainingSeconds));
       return res.status(423).json({
@@ -96,7 +95,7 @@ router.post('/login', async (req, res) => {
 
 /**
  * POST /api/logout
- * Wylogowanie ręczne - natychmiastowe unieważnienie sesji
+ * Wylogowanie ręczne
  */
 router.post('/logout', sessionMiddleware, (req, res) => {
   sessionService.destroySession(req.sessionId);
@@ -131,7 +130,7 @@ router.get('/me', sessionMiddleware, (req, res) => {
 
 /**
  * POST /api/change-password
- * Zmiana hasła (zarówno przy pierwszym logowaniu, jak i regularna zmiana)
+ * Zmiana hasła
  */
 router.post('/change-password', sessionMiddleware, async (req, res) => {
   const { oldPassword, newPassword, confirmPassword, recaptchaToken } = req.body;
@@ -173,7 +172,7 @@ router.post('/change-password', sessionMiddleware, async (req, res) => {
 
 /**
  * GET /api/test-accounts
- * Informacja o 6 kontach testowych i wariancie (ściągawka ułatwiająca testowanie)
+ * Informacja o 6 kontach testowych i wariancie
  */
 router.get('/test-accounts', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -207,7 +206,7 @@ router.get('/test-accounts', (req, res) => {
 
 /**
  * POST /api/reset-database
- * Reset bazy danych do 6 początkowych kont testowych (dostępne publicznie dla wygody testowania)
+ * Reset bazy danych do 6 początkowych kont testowych
  */
 router.post('/reset-database', (req, res) => {
   const data = db.resetToInitial();

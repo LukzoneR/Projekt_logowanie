@@ -1,11 +1,10 @@
 /**
  * Symulacja bota atakującego formularz logowania własnej aplikacji.
  *
- * Bot przechodzi kolejne etapy typowego ataku (od naiwnego wypełniania formularza,
- * przez brute force i enumerację loginów, po użycie danych z wykradzionego zrzutu bazy)
+ * Bot przechodzi kolejne etapy typowego ataku 
  * i sprawdza, które zabezpieczenia aplikacji zadziałały.
  *
- * Uruchomienie (serwer musi działać):  npm run test:bot
+ * Uruchomienie:  npm run test:bot
  * Inny adres serwera:                  $env:BASE_URL="http://localhost:3999"; npm run test:bot
  */
 const fs = require('fs');
@@ -85,7 +84,7 @@ async function getAdminSession() {
 // --- Scenariusze ataku ---
 
 async function testHoneypot() {
-  // Naiwny bot wypełnia każde pole formularza, łącznie z ukrytym "website".
+  // bot wypełnia każde pole formularza, łącznie z ukrytym "website".
   // Używamy POPRAWNEGO hasła: jeśli mimo to logowanie się nie uda, zablokowała je pułapka.
   const res = await login(HONEYPOT_VICTIM.username, HONEYPOT_VICTIM.password, { website: 'http://tanie-leki.example' });
   record({

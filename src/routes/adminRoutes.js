@@ -9,13 +9,12 @@ const sessionMiddleware = require('../middleware/sessionMiddleware');
 const { requirePermission, requirePasswordChanged } = require('../middleware/rbacMiddleware');
 const { PERMISSIONS, ROLES } = require('../services/rbacService');
 
-// Wszystkie trasy w tym pliku wymagają uwierzytelnionej sesji oraz braku wymogu zmiany hasła
 router.use(sessionMiddleware);
 router.use(requirePasswordChanged);
 
 /**
  * GET /api/admin/users
- * Lista użytkowników dla administratora (bez hashy haseł)
+ * Lista użytkowników dla administratora
  */
 router.get('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => {
   const users = db.getUsers().map(u => ({
@@ -38,7 +37,7 @@ router.get('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => 
 /**
  * POST /api/admin/users
  * Dodanie nowego użytkownika przez administratora
- * Generuje hasło jednorazowe (14 znaków alfanumerycznych, ważne 24h)
+ * Generuje hasło jednorazowe 
  */
 router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => {
   const { username, role } = req.body;
@@ -52,13 +51,13 @@ router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) =>
     return res.status(400).json({ success: false, message: 'Nieprawidłowa rola użytkownika.' });
   }
 
-  // Sprawdzenie unikalności loginu (login konta-pułapki jest zarezerwowany)
+  // Sprawdzenie unikalności loginu
   const existing = db.getUserByUsername(username.trim());
   if (existing || canaryService.isHoneyAccount(username)) {
     return res.status(400).json({ success: false, message: 'Użytkownik o takim loginie już istnieje.' });
   }
 
-  // Generowanie hasła jednorazowego: 14 znaków alfanumerycznych, ważne 24h (Wariant 5)
+  // Generowanie hasła jednorazowego
   const tempPassword = authService.generateTemporaryPassword(14);
   const passwordHash = bcrypt.hashSync(tempPassword, 10);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -86,7 +85,6 @@ router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) =>
       mustChangePassword: newUser.mustChangePassword,
       temporaryPasswordExpiresAt: newUser.temporaryPasswordExpiresAt
     },
-    // Hasło jednorazowe zwracane jest tylko raz administratorowi, aby mógł je przekazać
     temporaryPassword: tempPassword
   });
 });
@@ -133,14 +131,12 @@ router.put('/users/:id/block', requirePermission(PERMISSIONS.USERS_MANAGE), (req
 
   const newBlockState = !user.isBlocked;
   const blockUpdates = { isBlocked: newBlockState };
-  // Odblokowanie konta przez admina zeruje również licznik błędnych logowań
   if (!newBlockState) {
     blockUpdates.failedLoginAttempts = 0;
     blockUpdates.lockedUntil = null;
   }
   db.updateUser(user.id, blockUpdates);
 
-  // Jeśli zablokowano, natychmiast usuwamy aktywne sesje użytkownika
   if (newBlockState) {
     sessionService.destroyUserSessions(user.id);
   }
@@ -154,7 +150,7 @@ router.put('/users/:id/block', requirePermission(PERMISSIONS.USERS_MANAGE), (req
 
 /**
  * PUT /api/admin/users/:id/unlock
- * Zdjęcie czasowej blokady (po przekroczeniu limitu błędnych logowań) przed upływem 15 minut
+ * Zdjęcie czasowej blokady
  */
 router.put('/users/:id/unlock', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => {
   const user = db.getUserById(req.params.id);
@@ -173,7 +169,7 @@ router.put('/users/:id/unlock', requirePermission(PERMISSIONS.USERS_MANAGE), (re
 
 /**
  * POST /api/admin/users/:id/reset-password
- * Reset hasła - nadanie nowego hasła jednorazowego (14 znaków, ważne 24h)
+ * Reset hasła - nadanie nowego hasła jednorazowego
  */
 router.post('/users/:id/reset-password', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => {
   const user = db.getUserById(req.params.id);
@@ -226,7 +222,7 @@ router.delete('/users/:id', requirePermission(PERMISSIONS.USERS_MANAGE), (req, r
 
 /**
  * GET /api/admin/policy
- * Pobranie aktualnej konfiguracji polityki haseł i sesji
+ * Pobranie aktualnej konfiguracji polityki haseł i sesji bezpieczeństwa
  */
 router.get('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) => {
   const config = db.getConfig();
@@ -235,7 +231,7 @@ router.get('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
 
 /**
  * PUT /api/admin/policy
- * Aktualizacja polityki haseł i sesji
+ * Aktualizacja polityki haseł i sesji bezpieczeństwa
  */
 router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) => {
   const {
@@ -264,7 +260,7 @@ router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
     updates.sessionInactivityTimeoutMinutes = sessionInactivityTimeoutMinutes;
   }
 
-  // Limit błędnych logowań (0 = funkcja wyłączona, maks. 20 prób)
+  // Limit błędnych logowań
   if (maxFailedLoginAttempts !== undefined) {
     if (!Number.isInteger(maxFailedLoginAttempts) || maxFailedLoginAttempts < 0 || maxFailedLoginAttempts > 20) {
       return res.status(400).json({ success: false, message: 'Limit błędnych logowań musi być liczbą całkowitą od 0-20.' });
@@ -282,7 +278,7 @@ router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
 
 /**
  * GET /api/admin/canary-alerts
- * Lista aktywnych Canarytokens i zarejestrowanych alertów (najnowsze pierwsze)
+ * Lista aktywnych Canarytokens i zarejestrowanych alertów
  */
 router.get('/canary-alerts', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
   res.json({
@@ -303,7 +299,7 @@ router.delete('/canary-alerts', requirePermission(PERMISSIONS.ADMIN_ACCESS), (re
 
 /**
  * POST /api/admin/reset-database
- * Reset bazy do 6 początkowych użytkowników (do łatwych ponownych testów)
+ * Reset bazy do 6 początkowych użytkowników
  */
 router.post('/reset-database', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
   const data = db.resetToInitial();

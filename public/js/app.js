@@ -1,16 +1,16 @@
-// Aplikacja Uwierzytelniania i RBAC (Wariant 5)
+
 
 let currentUser = null;
 let currentSessionTimeoutMinutes = 15;
 let lastUserActivityTimestamp = Date.now();
 let inactivityInterval = null;
 
-// --- Limit błędnych logowań: stan blokad czasowych (login -> znacznik końca blokady) ---
+  // --- Limit błędnych logowań: stan blokad czasowych---
 const LOCKOUT_STORAGE_KEY = 'login_lockouts';
 let lockoutInterval = null;
 let lockoutShownFor = null;
 
-// --- Google reCAPTCHA v2 (klucz witryny pobierany z serwera, ustawiany przez RECAPTCHA_SITE_KEY) ---
+// --- Google reCAPTCHA v2 ---
 let RECAPTCHA_SITE_KEY = null;
 let loginCaptchaWidgetId = null;
 let firstLoginCaptchaWidgetId = null;
@@ -28,7 +28,6 @@ async function loadRecaptchaConfig() {
 }
 
 function renderRecaptchas() {
-  // Skrypt Google i klucz z serwera ładują się niezależnie - renderujemy, gdy są oba
   if (!RECAPTCHA_SITE_KEY || typeof grecaptcha === 'undefined' || !grecaptcha.render) return;
 
   const loginEl = document.getElementById('recaptcha-login');
@@ -96,7 +95,6 @@ function resetChangePassRecaptcha() {
   }
 }
 
-// --- Inicjalizacja po załadowaniu DOM ---
 document.addEventListener('DOMContentLoaded', () => {
   loadRecaptchaConfig();
   initEventListeners();
@@ -105,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
   updateLockoutDisplay();
 });
 
-// --- Limit błędnych logowań: obsługa odliczania blokady na ekranie logowania ---
 function loadLockouts() {
   try {
     return JSON.parse(localStorage.getItem(LOCKOUT_STORAGE_KEY)) || {};
@@ -120,7 +117,6 @@ function saveLockouts(lockouts) {
 
 function registerLockout(username, remainingSeconds) {
   const lockouts = loadLockouts();
-  // Czas końca liczony względem zegara klienta (odporne na różnice zegarów klient/serwer)
   lockouts[username.toLowerCase()] = Date.now() + remainingSeconds * 1000;
   saveLockouts(lockouts);
   updateLockoutDisplay();
@@ -149,7 +145,6 @@ function updateLockoutDisplay() {
   const now = Date.now();
   const lockouts = loadLockouts();
 
-  // Usuwanie wygasłych blokad
   let changed = false;
   Object.keys(lockouts).forEach(key => {
     if (lockouts[key] <= now) {
@@ -170,7 +165,6 @@ function updateLockoutDisplay() {
     submitBtn.disabled = true;
     lockoutShownFor = currentKey;
   } else {
-    // Blokada wyświetlanego konta właśnie wygasła
     if (lockoutShownFor && lockoutShownFor === currentKey) {
       showAlert('Blokada konta wygasła. Możesz ponownie się zalogować.', 'success', 5000);
     }
@@ -179,7 +173,6 @@ function updateLockoutDisplay() {
     submitBtn.disabled = false;
   }
 
-  // Interwał działa tylko, gdy istnieją aktywne blokady
   const hasActive = Object.keys(lockouts).length > 0;
   if (hasActive && !lockoutInterval) {
     lockoutInterval = setInterval(updateLockoutDisplay, 1000);
@@ -189,7 +182,6 @@ function updateLockoutDisplay() {
   }
 }
 
-// --- Zarządzanie sesją w sessionStorage ---
 function getSessionToken() {
   return sessionStorage.getItem('session_token');
 }
@@ -202,7 +194,6 @@ function setSessionToken(token) {
   }
 }
 
-// --- Wrapper zapytań HTTP do API ---
 async function apiFetch(url, options = {}) {
   const token = getSessionToken();
   const headers = {
@@ -231,7 +222,6 @@ async function apiFetch(url, options = {}) {
   }
 }
 
-// --- Weryfikacja istniejącej sesji ---
 async function checkExistingSession() {
   const token = getSessionToken();
   if (!token) {
@@ -261,7 +251,6 @@ async function checkExistingSession() {
   }
 }
 
-// --- Obsługa widoków ---
 function showView(viewName) {
   const loginSection = document.getElementById('loginSection');
   const firstLoginSection = document.getElementById('firstLoginSection');
@@ -289,11 +278,9 @@ function showView(viewName) {
     startInactivityTracking();
   }
 
-  // Odświeżenie widżetów reCAPTCHA w widocznym widoku
   setTimeout(renderRecaptchas, 50);
 }
 
-// --- Wyświetlanie powiadomień ---
 function showAlert(message, type = 'error', durationMs = 6000) {
   const alertEl = document.getElementById('globalAlert');
   alertEl.className = `alert alert-${type}`;
@@ -312,7 +299,6 @@ function clearAlert() {
   alertEl.classList.add('hidden');
 }
 
-// --- Śledzenie bezczynności sesji ---
 function resetActivity() {
   lastUserActivityTimestamp = Date.now();
 }
@@ -321,7 +307,6 @@ function startInactivityTracking() {
   stopInactivityTracking();
   lastUserActivityTimestamp = Date.now();
 
-  // Nasłuchiwanie zdarzeń aktywności użytkownika
   window.addEventListener('mousemove', resetActivity);
   window.addEventListener('keydown', resetActivity);
   window.addEventListener('click', resetActivity);
@@ -369,7 +354,6 @@ async function handleSessionExpired(msg) {
   showAlert(msg || 'Sesja wygasła z powodu bezczynności.', 'warning', 8000);
 }
 
-// --- Aktualizacja paska użytkownika ---
 function updateNavUserInfo() {
   const infoEl = document.getElementById('navUserInfo');
   if (currentUser) {
@@ -377,23 +361,16 @@ function updateNavUserInfo() {
   }
 }
 
-// --- Rejestracja zdarzeń formularzy i zakładek ---
 function initEventListeners() {
-  // Formularz logowania
   document.getElementById('loginForm').addEventListener('submit', handleLogin);
-  // Zmiana loginu przełącza widok blokady (blokada dotyczy konkretnego konta)
   document.getElementById('loginUsername').addEventListener('input', updateLockoutDisplay);
 
-  // Formularz pierwszego logowania
   document.getElementById('firstLoginForm').addEventListener('submit', handleFirstLogin);
 
-  // Formularz zmiany hasła
   document.getElementById('changePasswordForm').addEventListener('submit', handleChangePassword);
 
-  // Przycisk wylogowania
   document.getElementById('logoutBtn').addEventListener('click', handleLogout);
 
-  // Zakładki
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const targetTab = e.target.getAttribute('data-tab');
@@ -401,13 +378,11 @@ function initEventListeners() {
     });
   });
 
-  // Panel administratora: formularze
   document.getElementById('addUserForm').addEventListener('submit', handleAddUser);
   document.getElementById('policyForm').addEventListener('submit', handleUpdatePolicy);
   document.getElementById('btnRefreshCanary').addEventListener('click', loadCanaryAlerts);
   document.getElementById('btnClearCanary').addEventListener('click', handleClearCanaryAlerts);
 
-  // Przycisk resetowania do 6 kont testowych w panelu administratora
   document.addEventListener('click', (e) => {
     if (e.target && e.target.closest('#btnResetDb')) {
       e.preventDefault();
@@ -415,7 +390,6 @@ function initEventListeners() {
     }
   });
 
-  // Delegacja zdarzeń w tabeli użytkowników
   const adminTbody = document.getElementById('adminUsersTbody');
   if (adminTbody) {
     adminTbody.addEventListener('change', (e) => {
@@ -452,7 +426,6 @@ function initEventListeners() {
     });
   }
 
-  // Przełączanie widoczności hasła (pokaż/ukryj)
   document.querySelectorAll('.btn-toggle-password').forEach(btn => {
     btn.addEventListener('click', () => {
       const targetId = btn.getAttribute('data-target');
@@ -474,7 +447,6 @@ function initEventListeners() {
   });
 }
 
-// --- Obsługa logowania ---
 async function handleLogin(e) {
   e.preventDefault();
   clearAlert();
@@ -495,11 +467,9 @@ async function handleLogin(e) {
       body: JSON.stringify({ username, password, website, recaptchaToken })
     });
 
-    // Każde wyzwanie reCAPTCHA jest jednorazowe - resetujemy stan widżetu
     resetLoginRecaptcha();
 
     if (res.status === 423 && res.data.error === 'ACCOUNT_LOCKED') {
-      // Limit błędnych logowań przekroczony: pokaż odliczanie pozostałego czasu blokady
       document.getElementById('loginPassword').value = '';
       registerLockout(username, res.data.remainingSeconds || 900);
       return;
@@ -515,7 +485,6 @@ async function handleLogin(e) {
     setSessionToken(res.data.sessionId);
     currentUser = res.data.user;
 
-    // Pobranie pełnych danych profilu i konfiguracji
     const meRes = await apiFetch('/api/me');
     if (meRes.ok) {
       currentUser = meRes.data.user;
@@ -535,12 +504,10 @@ async function handleLogin(e) {
   }
 }
 
-// --- Obsługa wylogowania ---
 async function handleLogout() {
   try {
     await apiFetch('/api/logout', { method: 'POST' });
   } catch (err) {
-    // Ignoruj błąd przy wylogowaniu
   }
 
   stopInactivityTracking();
@@ -550,7 +517,6 @@ async function handleLogout() {
   showAlert('Zostałeś pomyślnie wylogowany.', 'success', 4000);
 }
 
-// --- Pierwsze logowanie (wymuszona zmiana hasła) ---
 async function handleFirstLogin(e) {
   e.preventDefault();
   clearAlert();
@@ -575,7 +541,6 @@ async function handleFirstLogin(e) {
       body: JSON.stringify({ newPassword, confirmPassword, recaptchaToken })
     });
 
-    // Resetowanie wyzwania reCAPTCHA (jednorazowość wyzwania)
     resetFirstLoginRecaptcha();
 
     if (!res.ok) {
@@ -594,7 +559,6 @@ async function handleFirstLogin(e) {
   }
 }
 
-// --- Regularna zmiana hasła ---
 async function handleChangePassword(e) {
   e.preventDefault();
   clearAlert();
@@ -620,7 +584,6 @@ async function handleChangePassword(e) {
       body: JSON.stringify({ oldPassword, newPassword, confirmPassword, recaptchaToken })
     });
 
-    // Resetowanie wyzwania reCAPTCHA (jednorazowość wyzwania)
     resetChangePassRecaptcha();
 
     if (!res.ok) {
@@ -636,7 +599,6 @@ async function handleChangePassword(e) {
   }
 }
 
-// --- Konfiguracja UI po zalogowaniu na podstawie roli (RBAC) ---
 function setupAuthenticatedUI() {
   if (!currentUser) return;
 
@@ -644,7 +606,6 @@ function setupAuthenticatedUI() {
   const tabBtnEmployee = document.getElementById('tabBtnEmployee');
   const tabBtnGuest = document.getElementById('tabBtnGuest');
 
-  // Widoczność zakładek w zależności od ról
   if (currentUser.role === 'Administrator') {
     tabBtnAdmin.classList.remove('hidden');
     tabBtnEmployee.classList.remove('hidden');
@@ -654,13 +615,11 @@ function setupAuthenticatedUI() {
     tabBtnEmployee.classList.remove('hidden');
     tabBtnGuest.classList.remove('hidden');
   } else {
-    // Gość
     tabBtnAdmin.classList.add('hidden');
     tabBtnEmployee.classList.add('hidden');
     tabBtnGuest.classList.remove('hidden');
   }
 
-  // Przełączenie na domyślną zakładkę Profil
   switchTab('tabProfile');
   loadProfileData();
 
@@ -669,7 +628,6 @@ function setupAuthenticatedUI() {
   }
 }
 
-// --- Przełączanie zakładek ---
 function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
@@ -680,7 +638,6 @@ function switchTab(tabId) {
     content.classList.toggle('active', content.id === tabId);
   });
 
-  // Odświeżenie widżetów reCAPTCHA w widocznej zakładce
   setTimeout(renderRecaptchas, 50);
 
   if (tabId === 'tabEmployee') {
@@ -694,7 +651,6 @@ function switchTab(tabId) {
   }
 }
 
-// --- Ładowanie danych profilu ---
 async function loadProfileData() {
   try {
     const res = await apiFetch('/api/me');

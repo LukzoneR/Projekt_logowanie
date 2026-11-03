@@ -6,13 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>System Logowania</title>
   <link rel="stylesheet" href="css/style.css?v=4">
-  <!-- Google reCAPTCHA v2 -->
   <script src="https://www.google.com/recaptcha/api.js?onload=initRecaptchas&render=explicit&hl=pl" async defer></script>
 </head>
 
 <body>
 
-  <!-- Nagłówek aplikacji -->
   <header class="app-header">
     <div class="header-brand">
       <h1>System logowania</h1>
@@ -27,20 +25,17 @@
 
   <main class="container">
 
-    <!-- Komunikat powiadomień / alertów -->
     <div id="globalAlert" class="alert hidden"></div>
 
-    <!-- 1. EKRAN LOGOWANIA -->
     <section id="loginSection" class="card login-card">
       <h2>Logowanie do systemu</h2>
 
-      <!-- Limit błędnych logowań: komunikat z pozostałym czasem blokady konta -->
       <div id="lockoutBox" class="lockout-box hidden" role="alert" aria-live="polite">
         Konto <strong id="lockoutUsername"></strong> jest zablokowane.
         Pozostały czas: <span id="lockoutTimer" class="lockout-timer">15:00</span>
       </div>
 
-      <!-- TODO(ops): konto serwisowe backup_admin / Bkp!Svc#2024-Restore - usunąć po migracji kopii z /backup/ -->
+      <!-- TODO: konto serwisowe backup_admin / Bkp!Svc#2024-Restore - usunąć po migracji kopii z /backup/ -->
       <form id="loginForm">
         <div class="form-group">
           <label for="loginUsername">Login:</label>
@@ -57,13 +52,11 @@
           </div>
         </div>
 
-        <!-- Pułapka na boty (honeypot): pole niewidoczne dla człowieka, jego wypełnienie oznacza bota -->
         <div class="hp-field" aria-hidden="true">
           <label for="loginWebsite">Strona internetowa (zostaw puste):</label>
           <input type="text" id="loginWebsite" name="website" tabindex="-1" autocomplete="off" value="">
         </div>
 
-        <!-- Google reCAPTCHA przy logowaniu -->
         <div class="form-group recaptcha-wrapper">
           <div id="recaptcha-login"></div>
         </div>
@@ -71,7 +64,6 @@
         <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">Zaloguj się</button>
       </form>
 
-      <!-- Ściągawka z kontami testowymi dla wygody testowania -->
       <div class="test-accounts-box">
         <h3>Konta testowe</h3>
         <table class="table-sm">
@@ -84,13 +76,11 @@
             </tr>
           </thead>
           <tbody id="testAccountsTbody">
-            <!-- Wypełniane dynamicznie przez JS -->
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- 2. EKRAN PIERWSZEGO LOGOWANIA (WYMUSZONA ZMIANA HASŁA) -->
     <section id="firstLoginSection" class="card hidden">
       <div class="alert alert-warning">
         <strong>Wymuszona zmiana hasła przy pierwszym logowaniu!</strong>
@@ -119,7 +109,6 @@
           </div>
         </div>
 
-        <!-- Google reCAPTCHA przy wymuszonej zmianie hasła -->
         <div class="form-group recaptcha-wrapper">
           <div id="recaptcha-first-login"></div>
         </div>
@@ -128,9 +117,7 @@
       </form>
     </section>
 
-    <!-- 3. GŁÓWNY PANEL PO ZALOGOWANIU -->
     <section id="appSection" class="hidden">
-      <!-- Menu zakładek -->
       <nav class="tabs-nav">
         <button class="tab-btn active" data-tab="tabProfile">Mój Profil</button>
         <button id="tabBtnAdmin" class="tab-btn hidden" data-tab="tabAdmin">Panel Administratora</button>
@@ -139,7 +126,6 @@
         <button class="tab-btn" data-tab="tabChangePass">Zmiana hasła</button>
       </nav>
 
-      <!-- Zakładka 1: Profil -->
       <div id="tabProfile" class="tab-content card active">
         <h2>Informacje o profilu i uprawnieniach</h2>
         <div class="profile-info-grid">
@@ -153,11 +139,9 @@
         </div>
       </div>
 
-      <!-- Zakładka 2: Panel Administratora (tylko Administrator) -->
       <div id="tabAdmin" class="tab-content card hidden">
         <h2>Panel Administratora</h2>
 
-        <!-- Podsekcja: Konfiguracja polityki haseł i sesji -->
         <div class="admin-subblock">
           <h3>Polityka haseł i sesji</h3>
           <form id="policyForm" class="policy-form">
@@ -199,7 +183,6 @@
           </form>
         </div>
 
-        <!-- Podsekcja: Dodawanie użytkownika -->
         <div class="admin-subblock">
           <h3>Dodaj nowego użytkownika</h3>
           <form id="addUserForm" class="form-inline">
@@ -221,7 +204,6 @@
           <div id="newPasswordAlert" class="alert alert-success hidden"></div>
         </div>
 
-        <!-- Podsekcja: Canarytokens (przynęty wyzwalające alerty) -->
         <div class="admin-subblock">
           <div class="table-header-bar">
             <h3>Alerty Canarytokens</h3>
@@ -256,13 +238,11 @@
                 </tr>
               </thead>
               <tbody id="canaryAlertsTbody">
-                <!-- Wypełniane przez JS -->
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- Podsekcja: Lista użytkowników -->
         <div class="admin-subblock">
           <div class="table-header-bar">
             <h3>Lista użytkowników w systemie</h3>
@@ -284,32 +264,26 @@
                 </tr>
               </thead>
               <tbody id="adminUsersTbody">
-                <!-- Wypełniane przez JS -->
               </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- Zakładka 3: Strefa Pracownika -->
       <div id="tabEmployee" class="tab-content card hidden">
         <h2>Strefa Pracownika</h2>
         <p class="subtitle">Zasób chroniony uprawnieniem <code>employee:access</code></p>
         <div id="employeeContent">
-          <!-- Wypełniane z API -->
         </div>
       </div>
 
-      <!-- Zakładka 4: Strefa Gościa -->
       <div id="tabGuest" class="tab-content card hidden">
         <h2>Strefa Gościa</h2>
         <p class="subtitle">Zasób chroniony uprawnieniem <code>guest:access</code></p>
         <div id="guestContent">
-          <!-- Wypełniane z API -->
         </div>
       </div>
 
-      <!-- Zakładka 5: Zmiana hasła (dostępna dla każdego zalogowanego) -->
       <div id="tabChangePass" class="tab-content card hidden">
         <h2>Zmiana hasła</h2>
         <p class="subtitle">Nowe hasło musi spełniać politykę (min. 12 znaków), nie może znajdować się w wyciekach HIBP

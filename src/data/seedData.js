@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { ROLES } = require('../services/rbacService');
 
-// 6 użytkowników testowych zgodnie z Wariantem 5
 const RAW_TEST_USERS = [
   {
     id: 'usr_admin',
@@ -16,7 +15,7 @@ const RAW_TEST_USERS = [
   {
     id: 'usr_pracownik1',
     username: 'pracownik1',
-    rawPassword: 'Prac1234Temp01', // 14 znaków alfanumerycznych
+    rawPassword: 'Prac1234Temp01', 
     role: ROLES.PRACOWNIK,
     mustChangePassword: true,
     isBlocked: false,
@@ -46,7 +45,7 @@ const RAW_TEST_USERS = [
   {
     id: 'usr_gosc2',
     username: 'gosc2',
-    rawPassword: 'GoscTemp123456', // 14 znaków alfanumerycznych
+    rawPassword: 'GoscTemp123456',
     role: ROLES.GOSC,
     mustChangePassword: true,
     isBlocked: false,
@@ -78,13 +77,11 @@ function getInitialSeedData() {
       id: u.id,
       username: u.username,
       passwordHash: passwordHash,
-      // Historia haseł (wymóg: nowe hasło musi różnić się od poprzednich)
       passwordHistory: [passwordHash],
       role: u.role,
       mustChangePassword: u.mustChangePassword,
       temporaryPasswordExpiresAt: u.mustChangePassword ? expires24h : null,
       isBlocked: u.isBlocked,
-      // Limit błędnych logowań: licznik nieudanych prób i czas zakończenia blokady czasowej
       failedLoginAttempts: 0,
       lockedUntil: null,
       isPermanentAdmin: !!u.isPermanentAdmin,

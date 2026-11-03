@@ -7,7 +7,6 @@ const { CANARY_WEBHOOK_URL } = require('../config/config');
 /**
  * Canarytokens - przynęty, których jakiekolwiek użycie oznacza intruza.
  * Uprawniony użytkownik nigdy ich nie dotyka, więc każde wyzwolenie jest alertem
- * (brak fałszywych alarmów, w przeciwieństwie do klasycznej detekcji anomalii).
  */
 
 const ALERTS_PATH = path.join(__dirname, '..', 'data', 'canary_alerts.json');
@@ -18,8 +17,7 @@ const TOKEN_TYPES = {
   DB_DUMP: 'Zrzut bazy danych'
 };
 
-// Token 1: konto-pułapka. Celowo NIE istnieje w db.json - logowanie zawsze kończy się
-// tym samym błędem co dla nieistniejącego loginu, ale każda próba wyzwala alert.
+// Token 1: konto-pułapka. Celowo NIE istnieje w db.json
 const HONEY_ACCOUNT = {
   tokenId: 'ct_honey_backup_admin',
   username: 'backup_admin',
@@ -27,7 +25,7 @@ const HONEY_ACCOUNT = {
   passwordHash: bcrypt.hashSync('Bkp!Svc#2024-Restore', 10)
 };
 
-// Token 2: fałszywy zrzut bazy wystawiony pod kuszącą ścieżką (wskazaną w robots.txt)
+// Token 2: fałszywy zrzut bazy wystawiony pod kuszącą ścieżką
 const DB_DUMP = {
   tokenId: 'ct_dbdump_20261028',
   directory: '/backup',
@@ -71,7 +69,7 @@ async function sendWebhook(alert) {
 }
 
 /**
- * Rejestruje wyzwolenie tokenu: konsola + trwały zapis + opcjonalny webhook
+ * Rejestruje wyzwolenie tokenu
  */
 function triggerAlert({ tokenId, tokenType, severity, description, req, details = {} }) {
   const alert = {
@@ -107,8 +105,7 @@ function isHoneyAccount(username) {
 }
 
 /**
- * Wywoływane przy każdej próbie logowania na konto-pułapkę.
- * Poprawne hasło oznacza, że atakujący posiada wykradzione dane (np. ze zrzutu bazy).
+ * Wywoływane przy każdej próbie logowania na konto-pułapkę
  */
 function handleHoneyAccountLogin(req, password) {
   const passwordMatches = bcrypt.compareSync(password || '', HONEY_ACCOUNT.passwordHash);
@@ -136,8 +133,7 @@ function handleDbDumpAccess(req) {
 }
 
 /**
- * Treść przynęty: wiarygodnie wyglądający zrzut MySQL. Zawiera dane konta-pułapki,
- * więc atakujący, który go użyje, wyzwoli drugi alert. Pozostałe hashe są losowe.
+* Treść przynęty: wiarygodnie wyglądający zrzut MySQL
  */
 function buildDbDumpContent() {
   const fakeHash = () => '$2b$10$' + crypto.randomBytes(40).toString('base64').replace(/[^A-Za-z0-9./]/g, '').slice(0, 53);

@@ -1,5 +1,4 @@
-// Model RBAC (Role-Based Access Control)
-// Wariant 5: Administrator, Pracownik, Gość
+
 
 const ROLES = {
   ADMINISTRATOR: 'Administrator',
@@ -8,19 +7,15 @@ const ROLES = {
 };
 
 const PERMISSIONS = {
-  // Uprawnienia administracyjne
   ADMIN_ACCESS: 'admin:access',
   USERS_MANAGE: 'users:manage',
   POLICY_MANAGE: 'policy:manage',
   
-  // Uprawnienia do strefy pracownika
   EMPLOYEE_ACCESS: 'employee:access',
   
-  // Uprawnienia do strefy gościa
   GUEST_ACCESS: 'guest:access'
 };
 
-// Mapowanie uprawnień do ról
 const ROLE_PERMISSIONS = {
   [ROLES.ADMINISTRATOR]: [
     PERMISSIONS.ADMIN_ACCESS,

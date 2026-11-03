@@ -3,9 +3,9 @@ const bcrypt = require('bcryptjs');
 const db = require('../data/database');
 const { RECAPTCHA_SECRET_KEY } = require('../config/config');
 
-// Pamięć podręczna zużytych tokenów w celu zagwarantowania jednorazowości wyzwania
+// Pamięć podręczna zużytych tokenów
 const usedRecaptchaTokens = new Map();
-const RECAPTCHA_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minuty ważności
+const RECAPTCHA_TOKEN_TTL_MS = 2 * 60 * 1000;
 
 function cleanExpiredRecaptchaTokens() {
   const now = Date.now();
@@ -18,7 +18,6 @@ function cleanExpiredRecaptchaTokens() {
 
 /**
  * Weryfikacja tokenu Google reCAPTCHA
- * Każde wyzwanie jest jednorazowe i ma ograniczony czas ważności (2 minuty).
  * @param {string} token
  * @returns {Promise<{ success: boolean, message?: string }>}
  */
@@ -32,7 +31,6 @@ async function verifyRecaptcha(token) {
 
   const cleanToken = token.trim();
 
-  // Sprawdzenie jednorazowości tokenu
   cleanExpiredRecaptchaTokens();
   if (usedRecaptchaTokens.has(cleanToken)) {
     return {
@@ -67,7 +65,6 @@ async function verifyRecaptcha(token) {
 
     const data = await response.json();
     if (data.success) {
-      // Oznaczenie tokenu jako zużytego (jednorazowość wyzwania)
       usedRecaptchaTokens.set(cleanToken, Date.now() + RECAPTCHA_TOKEN_TTL_MS);
       return { success: true };
     }
@@ -93,21 +90,19 @@ async function verifyRecaptcha(token) {
   }
 }
 
-// Hash dummy do ochrony przed atakami czasowymi (timing attacks)
+// Hash dummy do ochrony przed atakami czasowymi
 const DUMMY_HASH = bcrypt.hashSync('DummyPassword123!', 10);
 
 const GENERIC_LOGIN_ERROR = 'Login lub hasło niepoprawne';
 
 /**
- * Liczniki błędnych prób dla NIEISTNIEJĄCYCH loginów (tylko w pamięci).
- * Dzięki temu nieistniejący login również "blokuje się" po przekroczeniu limitu,
- * a ekran blokady nie zdradza atakującemu, czy dane konto istnieje.
+ * Liczniki błędnych prób dla NIEISTNIEJĄCYCH loginów
  */
 const phantomLockouts = new Map();
 const PHANTOM_MAX_ENTRIES = 10000;
 
 /**
- * Zwraca parametry polityki blokady z konfiguracji
+ * Zwraca parametry polityki blokady
  */
 function getLockoutPolicy(config) {
   const maxAttempts = Number.isInteger(config.maxFailedLoginAttempts) ? config.maxFailedLoginAttempts : 5;
@@ -120,7 +115,7 @@ function getLockoutPolicy(config) {
 }
 
 /**
- * Buduje odpowiedź o aktywnej blokadzie czasowej konta
+ * Buduje odpowiedź o aktywnej blokadzie
  */
 function buildLockedResult(lockedUntilMs) {
   const remainingSeconds = Math.max(1, Math.ceil((lockedUntilMs - Date.now()) / 1000));
@@ -135,7 +130,7 @@ function buildLockedResult(lockedUntilMs) {
 }
 
 /**
- * Obsługa licznika dla nieistniejącego loginu (zachowanie identyczne jak dla istniejącego konta)
+ * Obsługa licznika dla nieistniejącego loginu
  */
 function registerPhantomFailure(username, policy) {
   if (!policy.enabled) return { success: false, message: GENERIC_LOGIN_ERROR };
@@ -164,15 +159,14 @@ function getPhantomLock(username) {
 }
 
 /**
- * Czyści liczniki fantomowe (np. przy resecie bazy)
+ * Czyści liczniki fantomowe
  */
 function clearPhantomLockouts() {
   phantomLockouts.clear();
 }
 
 /**
- * Generuje hasło jednorazowe zgodnie z Wariantem 5:
- * 14 znaków alfanumerycznych, losowane kryptograficznie
+ * Generuje hasło jednorazowe
  */
 function generateTemporaryPassword(length = 14) {
   const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -185,9 +179,7 @@ function generateTemporaryPassword(length = 14) {
 }
 
 /**
- * Sprawdza hasło w bazie wycieków Have I Been Pwned (Pwned Passwords API)
- * Wariant 5: k-anonimowość - wysyłamy TYLKO 5 pierwszych znaków skrótu SHA-1
- * Serwer HIBP nigdy nie poznaje pełnego hasła ani pełnego hasza!
+ * Sprawdza hasło w bazie wycieków Have I Been Pwned
  * @param {string} password 
  * @returns {Promise<{ isPwned: boolean, count: number, apiError?: boolean }>}
  */
@@ -228,7 +220,7 @@ async function checkHaveIBeenPwned(password) {
 }
 
 /**
- * Sprawdza, czy nowe hasło było już używane (historia haseł)
+ * Sprawdza, czy nowe hasło było już używane
  */
 function isPasswordInHistory(newPassword, passwordHistory = []) {
   for (const oldHash of passwordHistory) {
@@ -241,14 +233,14 @@ function isPasswordInHistory(newPassword, passwordHistory = []) {
 
 /**
  * Waliduje hasło pod kątem polityki bezpieczeństwa:
- * - Długość minimalna (Wariant 5: domyślnie min. 12 znaków, NIST SP 800-63B-4)
- * - Brak w bazie wycieków HIBP (Wariant 5, jeśli włączone)
- * - Różnica od poprzednich haseł (historia)
+ * - Długość minimalna
+ * - Brak w bazie wycieków HIBP
+ * - Różnica od poprzednich haseł
  */
 async function validatePasswordPolicy(newPassword, user, config) {
   const errors = [];
 
-  // 1. Sprawdzenie długości (NIST SP 800-63B-4: liczy się długość, nie złożoność)
+  // 1. Sprawdzenie długości
   const minLength = config.minPasswordLength || 12;
   if (!newPassword || newPassword.length < minLength) {
     errors.push(`Hasło musi mieć co najmniej ${minLength} znaków (aktualna polityka NIST).`);
@@ -261,7 +253,7 @@ async function validatePasswordPolicy(newPassword, user, config) {
     }
   }
 
-  // 3. Sprawdzenie wycieków HIBP (Wariant 5)
+  // 3. Sprawdzenie wycieków HIBP
   if (config.checkHaveIBeenPwned && newPassword && newPassword.length >= minLength) {
     const hibpResult = await checkHaveIBeenPwned(newPassword);
     if (hibpResult.isPwned) {
@@ -277,13 +269,12 @@ async function validatePasswordPolicy(newPassword, user, config) {
 
 /**
  * Uwierzytelnianie użytkownika
- * Zgodnie z zasadą: "Komunikat błędu logowania nie może zdradzać, czy dany login istnieje."
  */
 async function authenticateUser(username, password) {
   const user = db.getUserByUsername(username);
   const policy = getLockoutPolicy(db.getConfig());
 
-  // Zabezpieczenie przed atakami czasowymi (timing attack)
+  // Zabezpieczenie przed atakami czasowymi
   // Gdy użytkownik nie istnieje, i tak wykonujemy bcrypt.compareSync
   if (!user) {
     const phantomLock = policy.enabled ? getPhantomLock(username) : null;
@@ -294,7 +285,7 @@ async function authenticateUser(username, password) {
     return registerPhantomFailure(username, policy);
   }
 
-  // Limit błędnych logowań: aktywna blokada czasowa sprawdzana PRZED weryfikacją hasła,
+  // Limit błędnych logowań: aktywna blokada czasowa sprawdzana PRZED weryfikacją hasła
   // aby w trakcie blokady nie dało się kontynuować zgadywania hasła
   const lockedUntilMs = user.lockedUntil ? new Date(user.lockedUntil).getTime() : 0;
   if (policy.enabled && lockedUntilMs > Date.now()) {
@@ -308,8 +299,7 @@ async function authenticateUser(username, password) {
     if (!policy.enabled) {
       return { success: false, message: GENERIC_LOGIN_ERROR };
     }
-
-    // Po wygaśnięciu poprzedniej blokady licznik liczony jest od zera
+    
     const previousAttempts = lockedUntilMs ? 0 : (user.failedLoginAttempts || 0);
     const attempts = previousAttempts + 1;
 
@@ -331,7 +321,7 @@ async function authenticateUser(username, password) {
     db.updateUser(user.id, { failedLoginAttempts: 0, lockedUntil: null });
   }
 
-  // Sprawdzenie blokady konta (dopiero po poprawnym uwierzytelnieniu, aby nie zdradzać istnienia loginu atakującemu)
+  // Sprawdzenie blokady konta
   if (user.isBlocked) {
     return {
       success: false,
@@ -339,7 +329,7 @@ async function authenticateUser(username, password) {
     };
   }
 
-  // Sprawdzenie ważności hasła jednorazowego (24h)
+  // Sprawdzenie ważności hasła jednorazowego
   if (user.mustChangePassword && user.temporaryPasswordExpiresAt) {
     const expiresAt = new Date(user.temporaryPasswordExpiresAt).getTime();
     if (Date.now() > expiresAt) {
@@ -350,13 +340,12 @@ async function authenticateUser(username, password) {
     }
   }
 
-  // Sprawdzenie ważności hasła w dniach (jeśli polityka określa termin ważności)
+  // Sprawdzenie ważności hasła w dniach
   const config = db.getConfig();
   if (config.passwordValidityDays && config.passwordValidityDays > 0 && user.passwordChangedAt && !user.mustChangePassword) {
     const changedAt = new Date(user.passwordChangedAt).getTime();
     const maxAgeMs = config.passwordValidityDays * 24 * 60 * 60 * 1000;
     if (Date.now() - changedAt > maxAgeMs) {
-      // Wymuszenie zmiany hasła po upływie okresu ważności
       db.updateUser(user.id, { mustChangePassword: true });
       user.mustChangePassword = true;
     }
@@ -377,7 +366,7 @@ async function changePassword({ userId, oldPassword, newPassword, confirmPasswor
     return { success: false, errors: ['Użytkownik nie istnieje.'] };
   }
 
-  // Sprawdzenie zgodności podwójnie wprowadzonego hasła
+  // Sprawdzenie zgodności wprowadzonego hasła
   if (!newPassword || newPassword !== confirmPassword) {
     return { success: false, errors: ['Nowe hasła nie są identyczne.'] };
   }
@@ -396,11 +385,11 @@ async function changePassword({ userId, oldPassword, newPassword, confirmPasswor
     return { success: false, errors: policyCheck.errors };
   }
 
-  // Wyliczenie nowego hasza z solą (bcrypt)
+  // Wyliczenie nowego hasza z solą
   const newHash = bcrypt.hashSync(newPassword, 10);
   const now = new Date().toISOString();
 
-  // Aktualizacja historii haseł (zapamiętujemy ostatnie 5 hashy)
+  // Aktualizacja historii haseł
   const history = [...(user.passwordHistory || []), newHash].slice(-5);
 
   db.updateUser(user.id, {
