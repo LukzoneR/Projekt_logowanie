@@ -43,7 +43,7 @@ async function verifyRecaptcha(token) {
 
   try {
     const params = new URLSearchParams();
-    params.append('secret', RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe');
+    params.append('secret', RECAPTCHA_SECRET_KEY);
     params.append('response', cleanToken);
 
     const controller = new AbortController();

@@ -16,6 +16,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 // Nagłówki HTTP muszą być w ASCII - bez polskich znaków
 const BOT_USER_AGENT = 'BotSimulator/1.0 (test bezpieczenstwa Projekt_logowanie)';
 const REPORT_PATH = path.join(__dirname, 'raport-bota.md');
+const GOOGLE_TEST_SITE_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
 
 // Konta testowe z seedData.js
 const ADMIN = { username: 'admin', password: 'Admin12345678!' };
@@ -123,17 +124,26 @@ async function testCaptchaReplay() {
 }
 
 async function testFakeCaptchaAccepted() {
+  const captchaConfig = await request('GET', '/api/recaptcha-config');
+  const usingTestKeys = captchaConfig.data.siteKey === GOOGLE_TEST_SITE_KEY;
+
   const res = await login(HONEYPOT_VICTIM.username, HONEYPOT_VICTIM.password);
   const accepted = res.status === 200 && !!res.data.sessionId;
   if (accepted) await request('POST', '/api/logout', { token: res.data.sessionId });
+
+  let details = describe(res);
+  if (accepted) {
+    details = usingTestKeys
+      ? 'Token zaakceptowany: serwer działa na TESTOWYCH kluczach Google, które przepuszczają każdy token. Ustaw prawdziwe klucze w .env.'
+      : 'Token zaakceptowany mimo kluczy produkcyjnych - sprawdź weryfikację reCAPTCHA na serwerze!';
+  }
+
   record({
     id: 4,
     attack: 'Bot podaje wymyślony (nowy) token reCAPTCHA',
     defense: 'Google reCAPTCHA - weryfikacja tokenu w Google',
     passed: !accepted,
-    details: accepted
-      ? 'Token zaakceptowany: aplikacja używa TESTOWYCH kluczy Google, które przepuszczają każdy token. Z kluczami produkcyjnymi wymyślony token zostałby odrzucony.'
-      : describe(res)
+    details
   });
 }
 

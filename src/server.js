@@ -7,6 +7,16 @@ const resourceRoutes = require('./routes/resourceRoutes');
 const canaryRoutes = require('./routes/canaryRoutes');
 const db = require('./data/database');
 
+if (config.RECAPTCHA_USING_TEST_KEYS) {
+  if (config.IS_PRODUCTION) {
+    console.error('BŁĄD: NODE_ENV=production, ale ustawione są testowe klucze reCAPTCHA (przepuszczają każdy token).');
+    console.error('Ustaw RECAPTCHA_SITE_KEY i RECAPTCHA_SECRET_KEY (np. w pliku .env) i uruchom ponownie.');
+    process.exit(1);
+  }
+  console.warn('UWAGA: używane są TESTOWE klucze reCAPTCHA - każdy token przechodzi weryfikację.');
+  console.warn('Na produkcji ustaw RECAPTCHA_SITE_KEY i RECAPTCHA_SECRET_KEY w pliku .env (wzór: .env.example).');
+}
+
 const app = express();
 
 // Parsowanie JSON

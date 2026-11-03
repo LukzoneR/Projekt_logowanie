@@ -7,6 +7,15 @@ const sessionMiddleware = require('../middleware/sessionMiddleware');
 const db = require('../data/database');
 const { getRolePermissions } = require('../services/rbacService');
 const { RAW_TEST_USERS } = require('../data/seedData');
+const { RECAPTCHA_SITE_KEY } = require('../config/config');
+
+/**
+ * GET /api/recaptcha-config
+ * Publiczny klucz witryny reCAPTCHA dla frontendu (klucz tajny nigdy nie opuszcza serwera)
+ */
+router.get('/recaptcha-config', (req, res) => {
+  res.json({ siteKey: RECAPTCHA_SITE_KEY });
+});
 
 /**
  * POST /api/login

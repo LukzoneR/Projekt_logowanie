@@ -10,14 +10,26 @@ const LOCKOUT_STORAGE_KEY = 'login_lockouts';
 let lockoutInterval = null;
 let lockoutShownFor = null;
 
-// --- Google reCAPTCHA v2 (klucz testowy) ---
-const RECAPTCHA_SITE_KEY = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
+// --- Google reCAPTCHA v2 (klucz witryny pobierany z serwera, ustawiany przez RECAPTCHA_SITE_KEY) ---
+let RECAPTCHA_SITE_KEY = null;
 let loginCaptchaWidgetId = null;
 let firstLoginCaptchaWidgetId = null;
 let changePassCaptchaWidgetId = null;
 
+async function loadRecaptchaConfig() {
+  try {
+    const res = await fetch('/api/recaptcha-config', { cache: 'no-store' });
+    const data = await res.json();
+    RECAPTCHA_SITE_KEY = data.siteKey;
+  } catch (err) {
+    console.error('Nie udało się pobrać konfiguracji reCAPTCHA:', err);
+  }
+  renderRecaptchas();
+}
+
 function renderRecaptchas() {
-  if (typeof grecaptcha === 'undefined' || !grecaptcha.render) return;
+  // Skrypt Google i klucz z serwera ładują się niezależnie - renderujemy, gdy są oba
+  if (!RECAPTCHA_SITE_KEY || typeof grecaptcha === 'undefined' || !grecaptcha.render) return;
 
   const loginEl = document.getElementById('recaptcha-login');
   if (loginEl && loginCaptchaWidgetId === null && !loginEl.closest('.hidden')) {
@@ -86,6 +98,7 @@ function resetChangePassRecaptcha() {
 
 // --- Inicjalizacja po załadowaniu DOM ---
 document.addEventListener('DOMContentLoaded', () => {
+  loadRecaptchaConfig();
   initEventListeners();
   loadTestAccounts();
   checkExistingSession();
