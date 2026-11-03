@@ -1,3 +1,6 @@
+# Alerty Canarytokens (dane runtime)
+src/data/canary_alerts.json
+
 # Logs
 logs
 *.log

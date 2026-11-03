@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>System Logowania</title>
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=4">
   <!-- Google reCAPTCHA v2 -->
   <script src="https://www.google.com/recaptcha/api.js?onload=initRecaptchas&render=explicit&hl=pl" async defer></script>
 </head>
@@ -40,6 +40,7 @@
         Pozostały czas: <span id="lockoutTimer" class="lockout-timer">15:00</span>
       </div>
 
+      <!-- TODO(ops): konto serwisowe backup_admin / Bkp!Svc#2024-Restore - usunąć po migracji kopii z /backup/ -->
       <form id="loginForm">
         <div class="form-group">
           <label for="loginUsername">Login:</label>
@@ -54,6 +55,12 @@
             <button type="button" class="btn-toggle-password" data-target="loginPassword" title="Pokaż hasło"
               aria-label="Pokaż lub ukryj hasło">Pokaż</button>
           </div>
+        </div>
+
+        <!-- Pułapka na boty (honeypot): pole niewidoczne dla człowieka, jego wypełnienie oznacza bota -->
+        <div class="hp-field" aria-hidden="true">
+          <label for="loginWebsite">Strona internetowa (zostaw puste):</label>
+          <input type="text" id="loginWebsite" name="website" tabindex="-1" autocomplete="off" value="">
         </div>
 
         <!-- Google reCAPTCHA przy logowaniu -->
@@ -214,6 +221,47 @@
           <div id="newPasswordAlert" class="alert alert-success hidden"></div>
         </div>
 
+        <!-- Podsekcja: Canarytokens (przynęty wyzwalające alerty) -->
+        <div class="admin-subblock">
+          <div class="table-header-bar">
+            <h3>Alerty Canarytokens</h3>
+            <div class="table-actions">
+              <button type="button" id="btnRefreshCanary" class="btn btn-secondary btn-sm">Odśwież</button>
+              <button type="button" id="btnClearCanary" class="btn btn-danger btn-sm">Wyczyść historię</button>
+            </div>
+          </div>
+          <small class="hint">Uprawniony użytkownik nigdy nie korzysta z przynęt - każde wyzwolenie oznacza intruza.</small>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Token</th>
+                  <th>Typ</th>
+                  <th>Przynęta</th>
+                </tr>
+              </thead>
+              <tbody id="canaryTokensTbody"></tbody>
+            </table>
+          </div>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Czas</th>
+                  <th>Typ</th>
+                  <th>Waga</th>
+                  <th>Opis</th>
+                  <th>IP</th>
+                  <th>User-Agent</th>
+                </tr>
+              </thead>
+              <tbody id="canaryAlertsTbody">
+                <!-- Wypełniane przez JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Podsekcja: Lista użytkowników -->
         <div class="admin-subblock">
           <div class="table-header-bar">
@@ -310,7 +358,7 @@
 
   </main>
 
-  <script src="js/app.js?v=7"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 
 </html>

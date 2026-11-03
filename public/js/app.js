@@ -391,6 +391,8 @@ function initEventListeners() {
   // Panel administratora: formularze
   document.getElementById('addUserForm').addEventListener('submit', handleAddUser);
   document.getElementById('policyForm').addEventListener('submit', handleUpdatePolicy);
+  document.getElementById('btnRefreshCanary').addEventListener('click', loadCanaryAlerts);
+  document.getElementById('btnClearCanary').addEventListener('click', handleClearCanaryAlerts);
 
   // Przycisk resetowania do 6 kont testowych w panelu administratora
   document.addEventListener('click', (e) => {
@@ -466,6 +468,7 @@ async function handleLogin(e) {
 
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
+  const website = document.getElementById('loginWebsite').value;
   const recaptchaToken = getLoginRecaptchaToken();
 
   if (!recaptchaToken) {
@@ -476,7 +479,7 @@ async function handleLogin(e) {
   try {
     const res = await apiFetch('/api/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password, recaptchaToken })
+      body: JSON.stringify({ username, password, website, recaptchaToken })
     });
 
     // Każde wyzwanie reCAPTCHA jest jednorazowe - resetujemy stan widżetu
@@ -772,7 +775,70 @@ async function loadGuestData() {
 
 // --- Panel Administratora: Ładowanie danych ---
 async function loadAdminData() {
-  await Promise.all([loadAdminUsers(), loadAdminPolicy()]);
+  await Promise.all([loadAdminUsers(), loadAdminPolicy(), loadCanaryAlerts()]);
+}
+
+// Dane alertów pochodzą od atakującego (User-Agent, ścieżka) - zawsze escapujemy
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+// --- Panel Administratora: Canarytokens ---
+async function loadCanaryAlerts() {
+  const tokensTbody = document.getElementById('canaryTokensTbody');
+  const alertsTbody = document.getElementById('canaryAlertsTbody');
+  if (!tokensTbody || !alertsTbody) return;
+
+  try {
+    const res = await apiFetch('/api/admin/canary-alerts');
+    if (!res.ok) {
+      alertsTbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${escapeHtml(res.data.message || 'Błąd')}</td></tr>`;
+      return;
+    }
+
+    tokensTbody.innerHTML = (res.data.tokens || []).map(t => `
+      <tr>
+        <td><code>${escapeHtml(t.tokenId)}</code></td>
+        <td>${escapeHtml(t.tokenType)}</td>
+        <td><small>${escapeHtml(t.bait)}</small></td>
+      </tr>
+    `).join('');
+
+    const alerts = res.data.alerts || [];
+    if (alerts.length === 0) {
+      alertsTbody.innerHTML = '<tr><td colspan="6">Brak alertów - żadna przynęta nie została użyta.</td></tr>';
+      return;
+    }
+
+    alertsTbody.innerHTML = alerts.map(a => `
+      <tr>
+        <td><small>${escapeHtml(new Date(a.triggeredAt).toLocaleString())}</small></td>
+        <td>${escapeHtml(a.tokenType)}</td>
+        <td><span class="badge ${a.severity === 'krytyczny' ? 'badge-blocked' : 'badge-locked'}">${escapeHtml(a.severity)}</span></td>
+        <td>${escapeHtml(a.description)}<br><small class="hint">${escapeHtml(a.method)} ${escapeHtml(a.path)}</small></td>
+        <td><code>${escapeHtml(a.ip)}</code></td>
+        <td><small>${escapeHtml(a.userAgent)}</small></td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    alertsTbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function handleClearCanaryAlerts() {
+  try {
+    const res = await apiFetch('/api/admin/canary-alerts', { method: 'DELETE' });
+    if (!res.ok) {
+      showAlert(res.data.message || 'Błąd czyszczenia alertów', 'error');
+      return;
+    }
+    showAlert(res.data.message, 'success', 3000);
+    loadCanaryAlerts();
+  } catch (err) {
+    showAlert(err.message, 'error');
+  }
 }
 
 let currentAdminUsers = [];

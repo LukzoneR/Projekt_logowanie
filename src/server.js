@@ -4,6 +4,7 @@ const config = require('./config/config');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
+const canaryRoutes = require('./routes/canaryRoutes');
 const db = require('./data/database');
 
 const app = express();
@@ -22,6 +23,9 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 app.use('/api', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/resources', resourceRoutes);
+
+// Canarytokens (przynęty) - przed fallbackiem SPA, który przechwyciłby te ścieżki
+app.use(canaryRoutes);
 
 // Fallback dla SPA - serwowanie index.html
 app.use((req, res, next) => {

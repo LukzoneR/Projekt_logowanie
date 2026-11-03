@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authService = require('../services/authService');
+const canaryService = require('../services/canaryService');
 const sessionService = require('../services/sessionService');
 const sessionMiddleware = require('../middleware/sessionMiddleware');
 const db = require('../data/database');
@@ -13,7 +14,23 @@ const { RAW_TEST_USERS } = require('../data/seedData');
  * Zabezpieczone: jednakowy komunikat błędu "Login lub hasło niepoprawne"
  */
 router.post('/login', async (req, res) => {
-  const { username, password, recaptchaToken } = req.body;
+  const { username, password, website, recaptchaToken } = req.body;
+
+  // Canarytoken: konto-pułapka. Alert wyzwalany jest przed pozostałymi sprawdzeniami,
+  // a dalsza obsługa przebiega jak dla nieistniejącego loginu (identyczna odpowiedź i czas).
+  if (canaryService.isHoneyAccount(username)) {
+    canaryService.handleHoneyAccountLogin(req, password);
+  }
+
+  // Pułapka na boty (honeypot): wypełnione ukryte pole oznacza bota.
+  // Zwracamy ogólny komunikat, aby nie zdradzać mechanizmu wykrywania.
+  if (typeof website === 'string' ? website.trim() !== '' : website != null) {
+    console.warn(`Pułapka na boty: odrzucono próbę logowania (login: "${username}", IP: ${req.ip})`);
+    return res.status(401).json({
+      success: false,
+      message: 'Login lub hasło niepoprawne'
+    });
+  }
 
   // Weryfikacja Google reCAPTCHA przy logowaniu
   const captchaCheck = await authService.verifyRecaptcha(recaptchaToken);

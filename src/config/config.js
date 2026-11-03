@@ -3,6 +3,8 @@ module.exports = {
   PORT: process.env.PORT || 3000,
   RECAPTCHA_SITE_KEY: process.env.RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
   RECAPTCHA_SECRET_KEY: process.env.RECAPTCHA_SECRET_KEY || '6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe',
+  // Canarytokens: opcjonalny webhook (Slack/Discord/własny), na który wysyłane są alerty
+  CANARY_WEBHOOK_URL: process.env.CANARY_WEBHOOK_URL || '',
   DEFAULT_CONFIG: {
     // Minimalna domyślna długość hasła (Wariant 5: min. 12 znaków)
     minPasswordLength: 12,

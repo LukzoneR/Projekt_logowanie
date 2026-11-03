@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const db = require('../data/database');
 const authService = require('../services/authService');
+const canaryService = require('../services/canaryService');
 const sessionService = require('../services/sessionService');
 const sessionMiddleware = require('../middleware/sessionMiddleware');
 const { requirePermission, requirePasswordChanged } = require('../middleware/rbacMiddleware');
@@ -51,9 +52,9 @@ router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) =>
     return res.status(400).json({ success: false, message: 'Nieprawidłowa rola użytkownika.' });
   }
 
-  // Sprawdzenie unikalności loginu
+  // Sprawdzenie unikalności loginu (login konta-pułapki jest zarezerwowany)
   const existing = db.getUserByUsername(username.trim());
-  if (existing) {
+  if (existing || canaryService.isHoneyAccount(username)) {
     return res.status(400).json({ success: false, message: 'Użytkownik o takim loginie już istnieje.' });
   }
 
@@ -277,6 +278,27 @@ router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
     message: 'Polityka bezpieczeństwa została zaktualizowana.',
     config: updatedConfig
   });
+});
+
+/**
+ * GET /api/admin/canary-alerts
+ * Lista aktywnych Canarytokens i zarejestrowanych alertów (najnowsze pierwsze)
+ */
+router.get('/canary-alerts', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
+  res.json({
+    success: true,
+    tokens: canaryService.getTokensOverview(),
+    alerts: canaryService.getAlerts()
+  });
+});
+
+/**
+ * DELETE /api/admin/canary-alerts
+ * Wyczyszczenie historii alertów
+ */
+router.delete('/canary-alerts', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
+  canaryService.clearAlerts();
+  res.json({ success: true, message: 'Historia alertów Canarytokens została wyczyszczona.' });
 });
 
 /**
