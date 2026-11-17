@@ -408,6 +408,26 @@ router.get('/audit-log/export', requirePermission(PERMISSIONS.ADMIN_ACCESS), (re
 });
 
 /**
+ * POST /api/admin/audit-log/verify
+ * Weryfikacja integralności całego dziennika (SHA-256 pliku vs suma w osobnym pliku)
+ */
+router.post('/audit-log/verify', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
+  res.json({ success: true, verification: auditService.verifyIntegrity(req) });
+});
+
+/**
+ * POST /api/admin/audit-log/integrity/acknowledge
+ * Potwierdzenie wyjaśnionych incydentów integralności
+ */
+router.post('/audit-log/integrity/acknowledge', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
+  const count = auditService.acknowledgeIncidents(req);
+  res.json({
+    success: true,
+    message: count ? `Potwierdzono incydenty integralności: ${count}.` : 'Brak niepotwierdzonych incydentów.'
+  });
+});
+
+/**
  * GET /api/admin/canary-alerts
  * Lista aktywnych Canarytokens i zarejestrowanych alertów
  */

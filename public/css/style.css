@@ -543,6 +543,29 @@ h3 {
   font-size: 0.85rem;
 }
 
+.integrity-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.integrity-result {
+  margin: 10px 0 0;
+}
+
+.integrity-result code {
+  word-break: break-all;
+}
+
+.integrity-incident {
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
 .audit-user-link {
   background: none;
   border: none;

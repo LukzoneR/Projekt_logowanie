@@ -56,7 +56,7 @@
       "mustChangePassword": false,
       "temporaryPasswordExpiresAt": null,
       "isBlocked": false,
-      "failedLoginAttempts": 0,
+      "failedLoginAttempts": 1,
       "lockedUntil": null,
       "isPermanentAdmin": false,
       "passwordChangedAt": "2026-11-17T11:54:45.769Z",

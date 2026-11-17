@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>System Logowania</title>
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=8">
   <script src="https://www.google.com/recaptcha/api.js?onload=initRecaptchas&render=explicit&hl=pl" async defer></script>
 </head>
 
@@ -279,6 +279,16 @@
         <p class="subtitle">Logowania i wylogowania, nieudane logowania, blokady kont, zmiany haseł, operacje na
           użytkownikach, zmiany ról i ustawień, odmowy dostępu oraz użycie przynęt (Canarytokens).</p>
 
+        <div class="integrity-box">
+          <div class="table-header-bar">
+            <h3>Integralność dziennika</h3>
+            <button type="button" id="btnVerifyIntegrity" class="btn btn-primary btn-sm">Zweryfikuj integralność</button>
+          </div>
+          <small class="hint">Po każdym wpisie liczony jest SHA-256 całego pliku dziennika i zapisywany w osobnym
+            pliku. Weryfikacja porównuje bieżący skrót pliku z zapisanym i wykrywa zmianę lub usunięcie wpisów.</small>
+          <div id="integrityResult"></div>
+        </div>
+
         <h4 class="audit-summary-title">Podsumowanie z ostatnich 24 godzin <small class="hint">(kliknij, aby
             filtrować)</small></h4>
         <div id="auditSummary" class="audit-summary"></div>
@@ -430,7 +440,7 @@
 
   </main>
 
-  <script src="js/app.js?v=12"></script>
+  <script src="js/app.js?v=15"></script>
 </body>
 
 </html>

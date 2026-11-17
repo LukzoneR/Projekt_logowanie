@@ -395,6 +395,10 @@ function initEventListeners() {
   document.getElementById('btnClearCanary').addEventListener('click', handleClearCanaryAlerts);
 
   document.getElementById('btnRefreshAudit').addEventListener('click', () => loadAuditLog());
+  document.getElementById('btnVerifyIntegrity').addEventListener('click', handleVerifyIntegrity);
+  document.getElementById('integrityResult').addEventListener('click', (e) => {
+    if (e.target.closest('#btnAckIntegrity')) handleAcknowledgeIntegrity();
+  });
   document.getElementById('btnExportAudit').addEventListener('click', handleExportAudit);
   document.getElementById('auditFilterForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -982,6 +986,79 @@ async function loadAuditLog() {
     `).join('');
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+// --- Integralność dziennika ---
+function renderIntegrityResult(v) {
+  const container = document.getElementById('integrityResult');
+  const checkedAt = new Date(v.checkedAt).toLocaleString();
+
+  if (v.intact) {
+    container.innerHTML = `
+      <div class="alert alert-success integrity-result">
+        <strong>Dziennik nienaruszony.</strong> Suma ${escapeHtml(v.algorithm)} pliku zgadza się z zapisaną w
+        <code>${escapeHtml(v.hashFile)}</code> (${v.entries} wpisów, sprawdzono ${escapeHtml(checkedAt)}).<br>
+        <small>Skrót: <code>${escapeHtml(v.currentHash || '-')}</code></small>
+        ${v.acknowledgedCount ? `<br><small>Wcześniej potwierdzone incydenty: ${v.acknowledgedCount}.</small>` : ''}
+      </div>
+    `;
+    return;
+  }
+
+  const incidentsHtml = v.incidents.map(i => `
+    <div class="integrity-incident">
+      <strong>${escapeHtml(i.description)}</strong><br>
+      <small>
+        Wykryto: ${escapeHtml(new Date(i.detectedAt).toLocaleString())} (${escapeHtml(i.detectedBy)}) &middot; incydent <code>${escapeHtml(i.id)}</code><br>
+        Wpisy: oczekiwano ${i.expectedEntries ?? '?'}, znaleziono ${i.actualEntries ?? 'nie da się odczytać'}<br>
+        Oczekiwany SHA-256: <code>${escapeHtml(i.expectedHash || 'brak')}</code><br>
+        Rzeczywisty SHA-256: <code>${escapeHtml(i.actualHash || 'brak pliku')}</code>
+        ${i.evidenceFile ? `<br>Kopia zmienionego pliku: <code>src/data/${escapeHtml(i.evidenceFile)}</code>` : ''}
+      </small>
+    </div>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="alert alert-error integrity-result">
+      <strong>Wykryto ingerencję w dziennik!</strong> Niepotwierdzonych incydentów: ${v.incidents.length} (sprawdzono ${escapeHtml(checkedAt)}).<br>
+      <small>Mechanizm (SHA-256 całego pliku) wykrywa, że plik zmieniono, ale nie wskazuje konkretnego wpisu -
+        widać jedynie, czy zmieniła się liczba wpisów (usunięcie) czy sama treść (modyfikacja).</small>
+      ${incidentsHtml}
+      <div style="margin-top: 10px;">
+        <button type="button" id="btnAckIntegrity" class="btn btn-sm btn-secondary">Potwierdź incydenty (wyjaśnione)</button>
+      </div>
+    </div>
+  `;
+}
+
+async function handleVerifyIntegrity() {
+  const container = document.getElementById('integrityResult');
+  container.innerHTML = '<p class="hint">Weryfikacja w toku...</p>';
+  try {
+    const res = await apiFetch('/api/admin/audit-log/verify', { method: 'POST' });
+    if (!res.ok) {
+      container.innerHTML = `<div class="alert alert-error integrity-result">${escapeHtml(res.data.message || 'Błąd weryfikacji')}</div>`;
+      return;
+    }
+    renderIntegrityResult(res.data.verification);
+    loadAuditLog();
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-error integrity-result">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function handleAcknowledgeIntegrity() {
+  try {
+    const res = await apiFetch('/api/admin/audit-log/integrity/acknowledge', { method: 'POST' });
+    if (!res.ok) {
+      showAlert(res.data.message || 'Błąd potwierdzania incydentów', 'error');
+      return;
+    }
+    showAlert(res.data.message, 'success', 4000);
+    handleVerifyIntegrity();
+  } catch (err) {
+    showAlert(err.message, 'error');
   }
 }
 
