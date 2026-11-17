@@ -356,6 +356,35 @@ function getAuditFilters(query) {
   return { action, result, user, query: q, from, to };
 }
 
+function describeAuditFilters(filters) {
+  const active = Object.entries(filters)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${key}=${value}`);
+  return active.length ? `(filtry: ${active.join(', ')})` : '(bez filtrów)';
+}
+
+const AUDIT_LOG_POST_PATHS = ['/verify', '/integrity/acknowledge'];
+
+/**
+ * Ochrona dziennika: tylko odczyt, eksport i weryfikacja. Każda próba edycji lub usunięcia
+ * wpisów (PUT/PATCH/DELETE, POST na inne ścieżki) jest odrzucana i rejestrowana.
+ */
+router.use('/audit-log', (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) ||
+      (req.method === 'POST' && AUDIT_LOG_POST_PATHS.includes(req.path))) {
+    return next();
+  }
+  auditService.log(req, {
+    action: 'AUDIT_MODIFY_DENIED',
+    success: false,
+    description: `Odrzucono żądanie ${req.method} ${req.originalUrl} - wpisów dziennika nie można edytować ani usuwać.`
+  });
+  res.set('Allow', 'GET, HEAD').status(405).json({
+    success: false,
+    message: 'Dziennik zdarzeń jest tylko do odczytu - wpisów nie można edytować ani usuwać.'
+  });
+});
+
 /**
  * GET /api/admin/audit-log
  * Przeglądarka logów: dziennik zdarzeń z filtrowaniem i stronicowaniem
@@ -366,7 +395,9 @@ router.get('/audit-log', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res)
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 1000);
   const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
-  const { entries, total } = auditService.getEntries({ ...getAuditFilters(req.query), limit, offset });
+  const filters = getAuditFilters(req.query);
+  const { entries, total } = auditService.getEntries({ ...filters, limit, offset });
+  auditService.logView(req, describeAuditFilters(filters), total);
 
   res.json({
     success: true,
@@ -391,14 +422,10 @@ router.get('/audit-log/export', requirePermission(PERMISSIONS.ADMIN_ACCESS), (re
   const { entries } = auditService.getEntries({ ...filters, limit: null });
   const file = auditService.buildExport(entries, format);
 
-  const activeFilters = Object.entries(filters)
-    .filter(([, value]) => value)
-    .map(([key, value]) => `${key}=${value}`);
   auditService.log(req, {
     action: 'AUDIT_EXPORT',
     success: true,
-    description: `Eksport dziennika do pliku ${file.fileName}, liczba wpisów: ${entries.length}` +
-      (activeFilters.length ? ` (filtry: ${activeFilters.join(', ')}).` : ' (bez filtrów).')
+    description: `Eksport dziennika do pliku ${file.fileName}, liczba wpisów: ${entries.length} ${describeAuditFilters(filters)}.`
   });
 
   res.setHeader('Content-Type', file.mimeType);

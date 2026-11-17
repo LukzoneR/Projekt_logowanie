@@ -5,6 +5,9 @@ const crypto = require('crypto');
 /**
  * Dziennik zdarzeń bezpieczeństwa (audit log)
  * Każdy wpis: użytkownik, data i czas, adres IP, akcja, opis, wynik (sukces/błąd)
+ *
+ * Ochrona dziennika: rejestrowania nie można wyłączyć (brak przełącznika w konfiguracji),
+ * a moduł udostępnia wyłącznie dopisywanie i odczyt - nie ma operacji edycji ani usuwania wpisów.
  */
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -12,10 +15,11 @@ const AUDIT_LOG_FILE = 'audit_log.json';
 const AUDIT_LOG_PATH = path.join(DATA_DIR, AUDIT_LOG_FILE);
 // Integralność (wariant 5): SHA-256 całego pliku dziennika, zapisywany po każdym wpisie w osobnym pliku
 const HASH_PATH = path.join(DATA_DIR, 'audit_log.sha256.json');
-const MAX_STORED_ENTRIES = 5000;
 const MAX_FIELD_LENGTH = 100;
+// Powtórne przeglądanie dziennika z tymi samymi filtrami (np. stronicowanie, odświeżanie) nie tworzy nowych wpisów
+const VIEW_LOG_WINDOW_MS = 5 * 60 * 1000;
 
-const ACTIONS = {
+const ACTIONS = Object.freeze({
   LOGIN: 'Logowanie',
   LOGOUT: 'Wylogowanie',
   ACCOUNT_LOCKOUT: 'Blokada konta (limit prób)',
@@ -32,16 +36,18 @@ const ACTIONS = {
   ACCESS_DENIED: 'Odmowa dostępu',
   HONEY_ACCOUNT: 'Użycie konta-pułapki',
   CANARY_DB_DUMP: 'Pobranie zrzutu-przynęty',
+  AUDIT_VIEW: 'Przeglądanie dziennika zdarzeń',
   AUDIT_EXPORT: 'Eksport dziennika zdarzeń',
+  AUDIT_MODIFY_DENIED: 'Próba edycji/usunięcia wpisów dziennika',
   INTEGRITY_CHECK: 'Weryfikacja integralności dziennika',
   INTEGRITY_VIOLATION: 'Naruszenie integralności dziennika',
   INTEGRITY_ACK: 'Potwierdzenie incydentu integralności'
-};
+});
 
-const RESULTS = {
+const RESULTS = Object.freeze({
   SUCCESS: 'sukces',
   FAILURE: 'błąd'
-};
+});
 
 const ANONYMOUS = 'anonim';
 
@@ -195,11 +201,11 @@ function detectTampering(detectedBy) {
   return { incident, record: rebased };
 }
 
+// Dziennik nie jest przycinany ani rotowany - aplikacja nigdy nie usuwa wpisów
 function saveEntries(entries) {
-  const kept = entries.slice(-MAX_STORED_ENTRIES);
-  const content = Buffer.from(JSON.stringify(kept, null, 2), 'utf-8');
+  const content = Buffer.from(JSON.stringify(entries, null, 2), 'utf-8');
   fs.writeFileSync(AUDIT_LOG_PATH, content);
-  writeHashRecord(buildHashRecord(content, kept.length, readHashRecord()));
+  writeHashRecord(buildHashRecord(content, entries.length, readHashRecord()));
   hashRecordExpected = true;
 }
 
@@ -270,6 +276,30 @@ function log(req, fields) {
     console.error('Dziennik zdarzeń: nie udało się zapisać wpisu:', err.message);
   }
   return entry;
+}
+
+const lastViewLogged = new Map();
+
+/**
+ * Rejestruje przeglądanie dziennika przez administratora
+ * @param {string} filtersDescription - opis aktywnych filtrów
+ * @param {number} total - liczba pasujących wpisów
+ */
+function logView(req, filtersDescription, total) {
+  const now = Date.now();
+  const key = `${req && req.user ? req.user.username : ANONYMOUS}|${filtersDescription}`;
+  if (now - (lastViewLogged.get(key) || 0) < VIEW_LOG_WINDOW_MS) return;
+
+  for (const [k, ts] of lastViewLogged) {
+    if (now - ts >= VIEW_LOG_WINDOW_MS) lastViewLogged.delete(k);
+  }
+  lastViewLogged.set(key, now);
+
+  log(req, {
+    action: 'AUDIT_VIEW',
+    success: true,
+    description: `Przeglądanie dziennika ${filtersDescription}, liczba pasujących wpisów: ${total}.`
+  });
 }
 
 function getUnacknowledgedIncidents(record) {
@@ -441,14 +471,16 @@ function getSummary(hours = 24) {
   return summary;
 }
 
-module.exports = {
+// Zamrożone API: innym modułom nie da się podmienić log() (np. na pustą funkcję) ani dodać operacji usuwania
+module.exports = Object.freeze({
   ACTIONS,
   RESULTS,
   log,
+  logView,
   getEntries,
   getUsernames,
   getSummary,
   buildExport,
   verifyIntegrity,
   acknowledgeIncidents
-};
+});
