@@ -40,7 +40,7 @@ class SessionService {
    * Pobiera sesję i weryfikuje czas bezczynności
    * @param {string} sessionId 
    * @param {number} timeoutMinutes 
-   * @returns {{ valid: boolean, session?: Object, expired?: boolean }}
+   * @returns {{ valid: boolean, session?: Object, expired?: boolean }} przy wygaśnięciu zwracana jest też usunięta sesja
    */
   getSession(sessionId, timeoutMinutes = 15) {
     if (!sessionId || !this.sessions.has(sessionId)) {
@@ -53,7 +53,7 @@ class SessionService {
 
     if (now - session.lastActivity > timeoutMs) {
       this.sessions.delete(sessionId);
-      return { valid: false, expired: true };
+      return { valid: false, expired: true, session };
     }
 
     session.lastActivity = now;

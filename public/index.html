@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>System Logowania</title>
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=6">
   <script src="https://www.google.com/recaptcha/api.js?onload=initRecaptchas&render=explicit&hl=pl" async defer></script>
 </head>
 
@@ -121,6 +121,7 @@
       <nav class="tabs-nav">
         <button class="tab-btn active" data-tab="tabProfile">Mój Profil</button>
         <button id="tabBtnAdmin" class="tab-btn hidden" data-tab="tabAdmin">Panel Administratora</button>
+        <button id="tabBtnLogs" class="tab-btn hidden" data-tab="tabLogs">Przeglądarka logów</button>
         <button id="tabBtnEmployee" class="tab-btn hidden" data-tab="tabEmployee">Strefa Pracownika</button>
         <button id="tabBtnGuest" class="tab-btn hidden" data-tab="tabGuest">Strefa Gościa</button>
         <button class="tab-btn" data-tab="tabChangePass">Zmiana hasła</button>
@@ -270,6 +271,103 @@
         </div>
       </div>
 
+      <div id="tabLogs" class="tab-content card hidden">
+        <div class="table-header-bar">
+          <h2>Przeglądarka logów</h2>
+          <button type="button" id="btnRefreshAudit" class="btn btn-secondary btn-sm">Odśwież</button>
+        </div>
+        <p class="subtitle">Logowania i wylogowania, nieudane logowania, blokady kont, zmiany haseł, operacje na
+          użytkownikach, zmiany ról i ustawień, odmowy dostępu oraz użycie przynęt (Canarytokens).</p>
+
+        <h4 class="audit-summary-title">Podsumowanie z ostatnich 24 godzin <small class="hint">(kliknij, aby
+            filtrować)</small></h4>
+        <div id="auditSummary" class="audit-summary"></div>
+
+        <form id="auditFilterForm" class="audit-filters">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="auditFilterUser">Użytkownik:</label>
+              <input type="text" id="auditFilterUser" list="auditUsernames" placeholder="Wszyscy" autocomplete="off">
+              <datalist id="auditUsernames"></datalist>
+            </div>
+            <div class="form-group">
+              <label for="auditFilterAction">Typ zdarzenia:</label>
+              <select id="auditFilterAction">
+                <option value="">Wszystkie</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="auditFilterResult">Wynik:</label>
+              <select id="auditFilterResult">
+                <option value="">Wszystkie</option>
+                <option value="sukces">Sukces</option>
+                <option value="błąd">Błąd</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="auditFilterFrom">Data od:</label>
+              <input type="datetime-local" id="auditFilterFrom">
+            </div>
+            <div class="form-group">
+              <label for="auditFilterTo">Data do:</label>
+              <input type="datetime-local" id="auditFilterTo">
+            </div>
+            <div class="form-group">
+              <label for="auditFilterQuery">Szukaj w IP / opisie:</label>
+              <input type="text" id="auditFilterQuery" placeholder="np. 192.168 lub hasło">
+            </div>
+          </div>
+          <div class="audit-toolbar">
+            <div class="table-actions">
+              <button type="submit" class="btn btn-primary btn-sm">Filtruj</button>
+              <button type="button" id="btnClearAuditFilters" class="btn btn-secondary btn-sm">Wyczyść filtry</button>
+            </div>
+            <div class="audit-export">
+              <label for="auditExportFormat">Eksport do pliku:</label>
+              <select id="auditExportFormat">
+                <option value="csv">CSV (Excel)</option>
+                <option value="json">JSON</option>
+              </select>
+              <button type="button" id="btnExportAudit" class="btn btn-secondary btn-sm"
+                title="Eksportuje wszystkie wpisy spełniające bieżące filtry">Eksportuj</button>
+            </div>
+          </div>
+        </form>
+
+        <div class="audit-toolbar">
+          <small id="auditCount" class="hint"></small>
+          <div class="audit-pagination">
+            <label for="auditPageSize">Na stronie:</label>
+            <select id="auditPageSize">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+            <button type="button" id="btnAuditPrev" class="btn btn-secondary btn-sm">&laquo; Poprzednia</button>
+            <span id="auditPageInfo" class="hint"></span>
+            <button type="button" id="btnAuditNext" class="btn btn-secondary btn-sm">Następna &raquo;</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table audit-table">
+            <thead>
+              <tr>
+                <th>Data i czas</th>
+                <th>Użytkownik</th>
+                <th>Adres IP</th>
+                <th>Typ zdarzenia</th>
+                <th>Opis</th>
+                <th>Wynik</th>
+              </tr>
+            </thead>
+            <tbody id="auditLogTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div id="tabEmployee" class="tab-content card hidden">
         <h2>Strefa Pracownika</h2>
         <p class="subtitle">Zasób chroniony uprawnieniem <code>employee:access</code></p>
@@ -332,7 +430,7 @@
 
   </main>
 
-  <script src="js/app.js?v=10"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 
 </html>

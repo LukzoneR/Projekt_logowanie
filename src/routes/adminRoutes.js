@@ -5,12 +5,25 @@ const db = require('../data/database');
 const authService = require('../services/authService');
 const canaryService = require('../services/canaryService');
 const sessionService = require('../services/sessionService');
+const auditService = require('../services/auditService');
 const sessionMiddleware = require('../middleware/sessionMiddleware');
 const { requirePermission, requirePasswordChanged } = require('../middleware/rbacMiddleware');
 const { PERMISSIONS, ROLES } = require('../services/rbacService');
 
 router.use(sessionMiddleware);
 router.use(requirePasswordChanged);
+
+/**
+ * Wysyła odpowiedź błędu i zapisuje nieudaną operację w dzienniku zdarzeń
+ */
+function failWithAudit(req, res, status, action, message, context = '') {
+  auditService.log(req, {
+    action,
+    success: false,
+    description: context ? `${context}: ${message}` : message
+  });
+  return res.status(status).json({ success: false, message });
+}
 
 /**
  * GET /api/admin/users
@@ -41,20 +54,21 @@ router.get('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => 
  */
 router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) => {
   const { username, role } = req.body;
+  const context = `Tworzenie użytkownika "${typeof username === 'string' ? username.trim() : ''}"`;
 
   if (!username || !username.trim()) {
-    return res.status(400).json({ success: false, message: 'Nazwa użytkownika jest wymagana.' });
+    return failWithAudit(req, res, 400, 'USER_CREATE', 'Nazwa użytkownika jest wymagana.', 'Tworzenie użytkownika');
   }
 
   const validRoles = [ROLES.ADMINISTRATOR, ROLES.PRACOWNIK, ROLES.GOSC];
   if (!role || !validRoles.includes(role)) {
-    return res.status(400).json({ success: false, message: 'Nieprawidłowa rola użytkownika.' });
+    return failWithAudit(req, res, 400, 'USER_CREATE', 'Nieprawidłowa rola użytkownika.', context);
   }
 
   // Sprawdzenie unikalności loginu
   const existing = db.getUserByUsername(username.trim());
   if (existing || canaryService.isHoneyAccount(username)) {
-    return res.status(400).json({ success: false, message: 'Użytkownik o takim loginie już istnieje.' });
+    return failWithAudit(req, res, 400, 'USER_CREATE', 'Użytkownik o takim loginie już istnieje.', context);
   }
 
   // Generowanie hasła jednorazowego
@@ -73,6 +87,12 @@ router.post('/users', requirePermission(PERMISSIONS.USERS_MANAGE), (req, res) =>
     isPermanentAdmin: false,
     failedLoginAttempts: 0,
     lockedUntil: null
+  });
+
+  auditService.log(req, {
+    action: 'USER_CREATE',
+    success: true,
+    description: `Utworzono użytkownika "${newUser.username}" z rolą ${newUser.role}; nadano hasło jednorazowe ważne 24 h.`
   });
 
   res.status(201).json({
@@ -98,19 +118,27 @@ router.put('/users/:id/role', requirePermission(PERMISSIONS.USERS_MANAGE), (req,
   const user = db.getUserById(req.params.id);
 
   if (!user) {
-    return res.status(404).json({ success: false, message: 'Użytkownik nie istnieje.' });
+    return failWithAudit(req, res, 404, 'ROLE_CHANGE', 'Użytkownik nie istnieje.', `Zmiana roli (id: ${req.params.id})`);
   }
 
+  const context = `Zmiana roli użytkownika "${user.username}" z ${user.role} na ${role}`;
+
   if (user.isPermanentAdmin && role !== ROLES.ADMINISTRATOR) {
-    return res.status(400).json({ success: false, message: 'Nie można zmienić roli stałego administratora.' });
+    return failWithAudit(req, res, 400, 'ROLE_CHANGE', 'Nie można zmienić roli stałego administratora.', context);
   }
 
   const validRoles = [ROLES.ADMINISTRATOR, ROLES.PRACOWNIK, ROLES.GOSC];
   if (!validRoles.includes(role)) {
-    return res.status(400).json({ success: false, message: 'Nieprawidłowa rola.' });
+    return failWithAudit(req, res, 400, 'ROLE_CHANGE', 'Nieprawidłowa rola.', context);
   }
 
+  const previousRole = user.role;
   const updated = db.updateUser(user.id, { role });
+  auditService.log(req, {
+    action: 'ROLE_CHANGE',
+    success: true,
+    description: `Zmieniono rolę użytkownika "${user.username}": ${previousRole} → ${updated.role}.`
+  });
   res.json({ success: true, message: 'Rola została zaktualizowana.', user: { id: updated.id, username: updated.username, role: updated.role } });
 });
 
@@ -122,11 +150,11 @@ router.put('/users/:id/block', requirePermission(PERMISSIONS.USERS_MANAGE), (req
   const user = db.getUserById(req.params.id);
 
   if (!user) {
-    return res.status(404).json({ success: false, message: 'Użytkownik nie istnieje.' });
+    return failWithAudit(req, res, 404, 'USER_BLOCK', 'Użytkownik nie istnieje.', `Zmiana blokady (id: ${req.params.id})`);
   }
 
   if (user.isPermanentAdmin) {
-    return res.status(400).json({ success: false, message: 'Nie można zablokować stałego konta administratora.' });
+    return failWithAudit(req, res, 400, 'USER_BLOCK', 'Nie można zablokować stałego konta administratora.', `Blokowanie użytkownika "${user.username}"`);
   }
 
   const newBlockState = !user.isBlocked;
@@ -140,6 +168,14 @@ router.put('/users/:id/block', requirePermission(PERMISSIONS.USERS_MANAGE), (req
   if (newBlockState) {
     sessionService.destroyUserSessions(user.id);
   }
+
+  auditService.log(req, {
+    action: newBlockState ? 'USER_BLOCK' : 'USER_UNBLOCK',
+    success: true,
+    description: newBlockState
+      ? `Zablokowano użytkownika "${user.username}"; jego aktywne sesje zostały unieważnione.`
+      : `Odblokowano użytkownika "${user.username}"; wyzerowano licznik błędnych logowań.`
+  });
 
   res.json({
     success: true,
@@ -156,10 +192,16 @@ router.put('/users/:id/unlock', requirePermission(PERMISSIONS.USERS_MANAGE), (re
   const user = db.getUserById(req.params.id);
 
   if (!user) {
-    return res.status(404).json({ success: false, message: 'Użytkownik nie istnieje.' });
+    return failWithAudit(req, res, 404, 'ACCOUNT_UNLOCK', 'Użytkownik nie istnieje.', `Zdjęcie blokady czasowej (id: ${req.params.id})`);
   }
 
   db.updateUser(user.id, { failedLoginAttempts: 0, lockedUntil: null });
+
+  auditService.log(req, {
+    action: 'ACCOUNT_UNLOCK',
+    success: true,
+    description: `Zdjęto czasową blokadę konta "${user.username}" przed jej wygaśnięciem.`
+  });
 
   res.json({
     success: true,
@@ -175,7 +217,7 @@ router.post('/users/:id/reset-password', requirePermission(PERMISSIONS.USERS_MAN
   const user = db.getUserById(req.params.id);
 
   if (!user) {
-    return res.status(404).json({ success: false, message: 'Użytkownik nie istnieje.' });
+    return failWithAudit(req, res, 404, 'PASSWORD_RESET', 'Użytkownik nie istnieje.', `Reset hasła (id: ${req.params.id})`);
   }
 
   const tempPassword = authService.generateTemporaryPassword(14);
@@ -190,6 +232,12 @@ router.post('/users/:id/reset-password', requirePermission(PERMISSIONS.USERS_MAN
 
   // Unieważnienie aktywnych sesji tego użytkownika
   sessionService.destroyUserSessions(user.id);
+
+  auditService.log(req, {
+    action: 'PASSWORD_RESET',
+    success: true,
+    description: `Nadano nowe hasło jednorazowe użytkownikowi "${user.username}" (ważne 24 h); jego sesje zostały unieważnione.`
+  });
 
   res.json({
     success: true,
@@ -207,15 +255,21 @@ router.delete('/users/:id', requirePermission(PERMISSIONS.USERS_MANAGE), (req, r
   const user = db.getUserById(req.params.id);
 
   if (!user) {
-    return res.status(404).json({ success: false, message: 'Użytkownik nie istnieje.' });
+    return failWithAudit(req, res, 404, 'USER_DELETE', 'Użytkownik nie istnieje.', `Usuwanie użytkownika (id: ${req.params.id})`);
   }
 
   if (user.isPermanentAdmin) {
-    return res.status(400).json({ success: false, message: 'Nie można usunąć stałego konta administratora.' });
+    return failWithAudit(req, res, 400, 'USER_DELETE', 'Nie można usunąć stałego konta administratora.', `Usuwanie użytkownika "${user.username}"`);
   }
 
   sessionService.destroyUserSessions(user.id);
   db.deleteUser(user.id);
+
+  auditService.log(req, {
+    action: 'USER_DELETE',
+    success: true,
+    description: `Usunięto użytkownika "${user.username}" (rola: ${user.role}).`
+  });
 
   res.json({ success: true, message: 'Użytkownik został pomyślnie usunięty.' });
 });
@@ -228,6 +282,14 @@ router.get('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
   const config = db.getConfig();
   res.json({ success: true, config });
 });
+
+const POLICY_LABELS = {
+  minPasswordLength: 'min. długość hasła',
+  checkHaveIBeenPwned: 'sprawdzanie HIBP',
+  passwordValidityDays: 'ważność hasła (dni)',
+  sessionInactivityTimeoutMinutes: 'bezczynność sesji (min)',
+  maxFailedLoginAttempts: 'limit błędnych logowań'
+};
 
 /**
  * PUT /api/admin/policy
@@ -263,17 +325,86 @@ router.put('/policy', requirePermission(PERMISSIONS.POLICY_MANAGE), (req, res) =
   // Limit błędnych logowań
   if (maxFailedLoginAttempts !== undefined) {
     if (!Number.isInteger(maxFailedLoginAttempts) || maxFailedLoginAttempts < 0 || maxFailedLoginAttempts > 20) {
-      return res.status(400).json({ success: false, message: 'Limit błędnych logowań musi być liczbą całkowitą od 0-20.' });
+      return failWithAudit(req, res, 400, 'SETTINGS_CHANGE', 'Limit błędnych logowań musi być liczbą całkowitą od 0-20.', 'Zmiana polityki bezpieczeństwa');
     }
     updates.maxFailedLoginAttempts = maxFailedLoginAttempts;
   }
 
+  const previousConfig = db.getConfig();
   const updatedConfig = db.updateConfig(updates);
+
+  const changes = Object.keys(updates)
+    .filter(key => previousConfig[key] !== updates[key])
+    .map(key => `${POLICY_LABELS[key] || key}: ${previousConfig[key]} → ${updates[key]}`);
+  auditService.log(req, {
+    action: 'SETTINGS_CHANGE',
+    success: true,
+    description: changes.length
+      ? `Zmieniono politykę bezpieczeństwa: ${changes.join('; ')}.`
+      : 'Zapisano politykę bezpieczeństwa bez zmian wartości.'
+  });
+
   res.json({
     success: true,
     message: 'Polityka bezpieczeństwa została zaktualizowana.',
     config: updatedConfig
   });
+});
+
+function getAuditFilters(query) {
+  const { action, result, user, q, from, to } = query;
+  return { action, result, user, query: q, from, to };
+}
+
+/**
+ * GET /api/admin/audit-log
+ * Przeglądarka logów: dziennik zdarzeń z filtrowaniem i stronicowaniem
+ * Parametry: action, result (sukces|błąd), user (dokładny login), q (użytkownik/IP/opis),
+ * from, to (ISO), limit (1-1000), offset
+ */
+router.get('/audit-log', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 1000);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
+  const { entries, total } = auditService.getEntries({ ...getAuditFilters(req.query), limit, offset });
+
+  res.json({
+    success: true,
+    actions: auditService.ACTIONS,
+    usernames: auditService.getUsernames(),
+    total,
+    offset,
+    limit,
+    entries,
+    summary24h: auditService.getSummary(24)
+  });
+});
+
+/**
+ * GET /api/admin/audit-log/export
+ * Eksport wszystkich wpisów spełniających filtry do pliku
+ * Parametry: format (csv|json) oraz te same filtry co GET /api/admin/audit-log
+ */
+router.get('/audit-log/export', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
+  const format = req.query.format === 'json' ? 'json' : 'csv';
+  const filters = getAuditFilters(req.query);
+  const { entries } = auditService.getEntries({ ...filters, limit: null });
+  const file = auditService.buildExport(entries, format);
+
+  const activeFilters = Object.entries(filters)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${key}=${value}`);
+  auditService.log(req, {
+    action: 'AUDIT_EXPORT',
+    success: true,
+    description: `Eksport dziennika do pliku ${file.fileName}, liczba wpisów: ${entries.length}` +
+      (activeFilters.length ? ` (filtry: ${activeFilters.join(', ')}).` : ' (bez filtrów).')
+  });
+
+  res.setHeader('Content-Type', file.mimeType);
+  res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(file.content);
 });
 
 /**
@@ -294,6 +425,11 @@ router.get('/canary-alerts', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, 
  */
 router.delete('/canary-alerts', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
   canaryService.clearAlerts();
+  auditService.log(req, {
+    action: 'SETTINGS_CHANGE',
+    success: true,
+    description: 'Wyczyszczono historię alertów Canarytokens.'
+  });
   res.json({ success: true, message: 'Historia alertów Canarytokens została wyczyszczona.' });
 });
 
@@ -304,6 +440,11 @@ router.delete('/canary-alerts', requirePermission(PERMISSIONS.ADMIN_ACCESS), (re
 router.post('/reset-database', requirePermission(PERMISSIONS.ADMIN_ACCESS), (req, res) => {
   const data = db.resetToInitial();
   authService.clearPhantomLockouts();
+  auditService.log(req, {
+    action: 'DATABASE_RESET',
+    success: true,
+    description: `Reset bazy do ${data.users.length} kont początkowych (użytkownicy i polityka bezpieczeństwa).`
+  });
   res.json({
     success: true,
     message: 'Baza danych została zresetowana do 6 użytkowników początkowych.',

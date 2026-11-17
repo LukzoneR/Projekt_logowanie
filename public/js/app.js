@@ -342,11 +342,22 @@ function updateInactivityTimer() {
   timerEl.textContent = `Sesja: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   if (remainingMs <= 0) {
-    handleSessionExpired('Sesja wygasła z powodu bezczynności.');
+    handleSessionExpired('Sesja wygasła z powodu bezczynności.', true);
   }
 }
 
-async function handleSessionExpired(msg) {
+async function handleSessionExpired(msg, notifyServer = false) {
+  const token = getSessionToken();
+  // Zwykły fetch zamiast apiFetch: odpowiedź 401 SESSION_EXPIRED nie może ponownie wywołać tej funkcji
+  if (notifyServer && token) {
+    fetch('/api/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ reason: 'inactivity' }),
+      keepalive: true
+    }).catch(() => { });
+  }
+
   stopInactivityTracking();
   setSessionToken(null);
   currentUser = null;
@@ -382,6 +393,39 @@ function initEventListeners() {
   document.getElementById('policyForm').addEventListener('submit', handleUpdatePolicy);
   document.getElementById('btnRefreshCanary').addEventListener('click', loadCanaryAlerts);
   document.getElementById('btnClearCanary').addEventListener('click', handleClearCanaryAlerts);
+
+  document.getElementById('btnRefreshAudit').addEventListener('click', () => loadAuditLog());
+  document.getElementById('btnExportAudit').addEventListener('click', handleExportAudit);
+  document.getElementById('auditFilterForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    reloadAuditFromStart();
+  });
+  document.getElementById('btnClearAuditFilters').addEventListener('click', () => {
+    document.getElementById('auditFilterForm').reset();
+    reloadAuditFromStart();
+  });
+  document.getElementById('auditSummary').addEventListener('click', (e) => {
+    const item = e.target.closest('.audit-summary-item');
+    if (!item) return;
+    document.getElementById('auditFilterAction').value = item.getAttribute('data-action');
+    document.getElementById('auditFilterResult').value = item.getAttribute('data-result') || '';
+    reloadAuditFromStart();
+  });
+  document.getElementById('auditLogTbody').addEventListener('click', (e) => {
+    const userLink = e.target.closest('.audit-user-link');
+    if (!userLink) return;
+    document.getElementById('auditFilterUser').value = userLink.getAttribute('data-user');
+    reloadAuditFromStart();
+  });
+  document.getElementById('auditPageSize').addEventListener('change', reloadAuditFromStart);
+  document.getElementById('btnAuditPrev').addEventListener('click', () => {
+    auditOffset = Math.max(0, auditOffset - getAuditPageSize());
+    loadAuditLog();
+  });
+  document.getElementById('btnAuditNext').addEventListener('click', () => {
+    auditOffset += getAuditPageSize();
+    loadAuditLog();
+  });
 
   document.addEventListener('click', (e) => {
     if (e.target && e.target.closest('#btnResetDb')) {
@@ -606,6 +650,8 @@ function setupAuthenticatedUI() {
   const tabBtnEmployee = document.getElementById('tabBtnEmployee');
   const tabBtnGuest = document.getElementById('tabBtnGuest');
 
+  document.getElementById('tabBtnLogs').classList.toggle('hidden', currentUser.role !== 'Administrator');
+
   if (currentUser.role === 'Administrator') {
     tabBtnAdmin.classList.remove('hidden');
     tabBtnEmployee.classList.remove('hidden');
@@ -646,6 +692,8 @@ function switchTab(tabId) {
     loadGuestData();
   } else if (tabId === 'tabAdmin') {
     loadAdminData();
+  } else if (tabId === 'tabLogs') {
+    loadAuditLog();
   } else if (tabId === 'tabProfile') {
     loadProfileData();
   }
@@ -805,6 +853,167 @@ async function handleClearCanaryAlerts() {
     }
     showAlert(res.data.message, 'success', 3000);
     loadCanaryAlerts();
+    loadAuditLog();
+  } catch (err) {
+    showAlert(err.message, 'error');
+  }
+}
+
+// --- Przeglądarka logów ---
+let auditActionLabels = {};
+let auditOffset = 0;
+
+function getAuditFilters() {
+  const toIso = (value) => value ? new Date(value).toISOString() : '';
+  return {
+    user: document.getElementById('auditFilterUser').value.trim(),
+    action: document.getElementById('auditFilterAction').value,
+    result: document.getElementById('auditFilterResult').value,
+    q: document.getElementById('auditFilterQuery').value.trim(),
+    from: toIso(document.getElementById('auditFilterFrom').value),
+    to: toIso(document.getElementById('auditFilterTo').value)
+  };
+}
+
+function buildAuditQuery(extra = {}) {
+  const params = new URLSearchParams();
+  Object.entries({ ...getAuditFilters(), ...extra }).forEach(([key, value]) => {
+    if (value !== '' && value !== undefined && value !== null) params.set(key, value);
+  });
+  return params.toString();
+}
+
+function getAuditPageSize() {
+  return parseInt(document.getElementById('auditPageSize').value, 10) || 50;
+}
+
+// Zmiana filtrów zawsze wraca do pierwszej strony wyników
+function reloadAuditFromStart() {
+  auditOffset = 0;
+  loadAuditLog();
+}
+
+function populateAuditUsernames(usernames) {
+  document.getElementById('auditUsernames').innerHTML = usernames
+    .map(name => `<option value="${escapeHtml(name)}"></option>`)
+    .join('');
+}
+
+function populateAuditActionSelect(actions) {
+  const select = document.getElementById('auditFilterAction');
+  const selected = select.value;
+  select.innerHTML = '<option value="">Wszystkie</option>' + Object.entries(actions)
+    .map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`)
+    .join('');
+  select.value = selected;
+}
+
+function renderAuditSummary(summary) {
+  const container = document.getElementById('auditSummary');
+  const keys = Object.keys(auditActionLabels).filter(key => summary[key]);
+  if (keys.length === 0) {
+    container.innerHTML = '<small class="hint">Brak zdarzeń w ostatnich 24 godzinach.</small>';
+    return;
+  }
+
+  container.innerHTML = keys.map(key => {
+    const ok = summary[key]['sukces'] || 0;
+    const fail = summary[key]['błąd'] || 0;
+    return `
+      <button type="button" class="audit-summary-item ${fail ? 'has-failures' : ''}" data-action="${escapeHtml(key)}" data-result="${fail && !ok ? 'błąd' : ''}">
+        <strong>${escapeHtml(auditActionLabels[key])}</strong>
+        <span class="audit-count-ok">sukces: ${ok}</span> &middot;
+        <span class="${fail ? 'audit-count-fail' : ''}">błąd: ${fail}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+async function loadAuditLog() {
+  const tbody = document.getElementById('auditLogTbody');
+  const countEl = document.getElementById('auditCount');
+  if (!tbody) return;
+
+  const pageSize = getAuditPageSize();
+
+  try {
+    const res = await apiFetch(`/api/admin/audit-log?${buildAuditQuery({ limit: pageSize, offset: auditOffset })}`);
+    if (!res.ok) {
+      tbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${escapeHtml(res.data.message || 'Błąd')}</td></tr>`;
+      return;
+    }
+
+    const total = res.data.total;
+    // Po usunięciu filtrów lub rotacji wpisów bieżąca strona może wykraczać poza wyniki
+    if (auditOffset > 0 && auditOffset >= total) {
+      auditOffset = Math.max(0, Math.floor((total - 1) / pageSize) * pageSize);
+      return loadAuditLog();
+    }
+
+    auditActionLabels = res.data.actions || {};
+    populateAuditActionSelect(auditActionLabels);
+    populateAuditUsernames(res.data.usernames || []);
+    renderAuditSummary(res.data.summary24h || {});
+
+    const entries = res.data.entries || [];
+    const page = Math.floor(auditOffset / pageSize) + 1;
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    countEl.textContent = total
+      ? `Wpisy ${auditOffset + 1}–${auditOffset + entries.length} z ${total} spełniających filtry (od najnowszych).`
+      : '';
+    document.getElementById('auditPageInfo').textContent = `Strona ${page} z ${pages}`;
+    document.getElementById('btnAuditPrev').disabled = auditOffset === 0;
+    document.getElementById('btnAuditNext').disabled = auditOffset + pageSize >= total;
+
+    if (entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6">Brak zdarzeń spełniających kryteria.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = entries.map(e => `
+      <tr>
+        <td>${escapeHtml(new Date(e.timestamp).toLocaleString())}</td>
+        <td><button type="button" class="audit-user-link" data-user="${escapeHtml(e.username)}" title="Pokaż tylko zdarzenia tego użytkownika">${escapeHtml(e.username)}</button></td>
+        <td><code>${escapeHtml(e.ip)}</code></td>
+        <td>${escapeHtml(auditActionLabels[e.action] || e.action)}</td>
+        <td>${escapeHtml(e.description)}</td>
+        <td><span class="badge ${e.result === 'sukces' ? 'badge-active' : 'badge-blocked'}">${escapeHtml(e.result)}</span></td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="alert alert-error">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+// Plik generuje serwer; zwykły link nie prześle nagłówka Authorization, więc pobieramy go przez fetch
+async function handleExportAudit() {
+  const format = document.getElementById('auditExportFormat').value;
+  try {
+    const response = await fetch(`/api/admin/audit-log/export?${buildAuditQuery({ format })}`, {
+      headers: { 'Authorization': `Bearer ${getSessionToken()}` }
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (data.error === 'SESSION_EXPIRED') {
+        handleSessionExpired('Sesja wygasła z powodu bezczynności.');
+        return;
+      }
+      showAlert(data.message || 'Błąd eksportu dziennika zdarzeń.', 'error');
+      return;
+    }
+
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = match ? match[1] : `dziennik_zdarzen.${format}`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+
+    showAlert(`Wyeksportowano dziennik zdarzeń do pliku ${link.download}.`, 'success', 4000);
+    loadAuditLog();
   } catch (err) {
     showAlert(err.message, 'error');
   }
@@ -917,6 +1126,7 @@ async function handleRoleChange(userId, newRole) {
       method: 'PUT',
       body: JSON.stringify({ role: newRole })
     });
+    loadAuditLog();
 
     if (!res.ok) {
       showAdminUsersAlert(res.data.message || 'Błąd zmiany roli', 'error');
@@ -936,6 +1146,7 @@ async function handleBlockToggle(userId) {
     const res = await apiFetch(`/api/admin/users/${userId}/block`, {
       method: 'PUT'
     });
+    loadAuditLog();
 
     if (!res.ok) {
       showAdminUsersAlert(res.data.message || 'Błąd zmiany blokady', 'error');
@@ -953,6 +1164,7 @@ async function handleBlockToggle(userId) {
 async function handleUnlockClick(userId) {
   try {
     const res = await apiFetch(`/api/admin/users/${userId}/unlock`, { method: 'PUT' });
+    loadAuditLog();
 
     if (!res.ok) {
       showAdminUsersAlert(res.data.message || 'Błąd zdejmowania blokady', 'error');
@@ -996,6 +1208,7 @@ function handleResetClick(userId) {
       const res = await apiFetch(`/api/admin/users/${userId}/reset-password`, {
         method: 'POST'
       });
+      loadAuditLog();
 
       if (!res.ok) {
         showAdminUsersAlert(res.data.message || 'Błąd generowania hasła', 'error');
@@ -1044,6 +1257,7 @@ function handleDeleteClick(userId) {
       const res = await apiFetch(`/api/admin/users/${userId}`, {
         method: 'DELETE'
       });
+      loadAuditLog();
 
       if (!res.ok) {
         showAdminUsersAlert(res.data.message || 'Błąd usuwania użytkownika', 'error');
@@ -1069,6 +1283,7 @@ async function handleAddUser(e) {
       method: 'POST',
       body: JSON.stringify({ username, role })
     });
+    loadAuditLog();
 
     if (!res.ok) {
       showAlert(res.data.message || 'Błąd dodawania użytkownika', 'error');
@@ -1130,6 +1345,7 @@ async function handleUpdatePolicy(e) {
         maxFailedLoginAttempts
       })
     });
+    loadAuditLog();
 
     if (!res.ok) {
       showAlert(res.data.message || 'Błąd zapisu polityki', 'error');
@@ -1145,8 +1361,8 @@ async function handleUpdatePolicy(e) {
 
 async function handleResetDatabase() {
   try {
-    const res = await fetch('/api/reset-database', { method: 'POST' });
-    const data = await res.json();
+    const res = await apiFetch('/api/admin/reset-database', { method: 'POST' });
+    const data = res.data;
     if (res.ok) {
       showAdminUsersAlert('Baza danych została pomyślnie zresetowana do 6 kont testowych.', 'success', 5000);
       localStorage.removeItem(LOCKOUT_STORAGE_KEY);
@@ -1154,6 +1370,7 @@ async function handleResetDatabase() {
       loadAdminUsers();
       loadTestAccounts();
       loadAdminPolicy();
+      loadAuditLog();
     } else {
       showAdminUsersAlert(data.message || 'Błąd resetowania bazy danych.', 'error');
     }

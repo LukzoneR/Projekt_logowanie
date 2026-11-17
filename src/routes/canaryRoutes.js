@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const canaryService = require('../services/canaryService');
+const auditService = require('../services/auditService');
 
 const { directory, fileName } = canaryService.DB_DUMP;
 
@@ -24,7 +25,12 @@ router.get(`${directory}/`, (req, res) => {
  * Canarytoken: fałszywy zrzut bazy
  */
 router.get(`${directory}/${fileName}`, (req, res) => {
-  canaryService.handleDbDumpAccess(req);
+  const alert = canaryService.handleDbDumpAccess(req);
+  auditService.log(req, {
+    action: 'CANARY_DB_DUMP',
+    success: false,
+    description: `${alert.description} Alert ${alert.id}, waga: ${alert.severity}.`
+  });
   // Wyświetlenie inline jako tekst
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);

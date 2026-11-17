@@ -115,13 +115,26 @@ function getLockoutPolicy(config) {
 }
 
 /**
+ * Przyczyny nieudanego logowania - tylko do dziennika zdarzeń, nie są zwracane klientowi
+ */
+const LOGIN_FAILURE_REASONS = {
+  UNKNOWN_USER: 'UNKNOWN_USER',
+  BAD_PASSWORD: 'BAD_PASSWORD',
+  LOCKED: 'LOCKED',
+  LOCKOUT_TRIGGERED: 'LOCKOUT_TRIGGERED',
+  ACCOUNT_BLOCKED: 'ACCOUNT_BLOCKED',
+  TEMP_PASSWORD_EXPIRED: 'TEMP_PASSWORD_EXPIRED'
+};
+
+/**
  * Buduje odpowiedź o aktywnej blokadzie
  */
-function buildLockedResult(lockedUntilMs) {
+function buildLockedResult(lockedUntilMs, reason = LOGIN_FAILURE_REASONS.LOCKED) {
   const remainingSeconds = Math.max(1, Math.ceil((lockedUntilMs - Date.now()) / 1000));
   const minutes = Math.ceil(remainingSeconds / 60);
   return {
     success: false,
+    reason,
     locked: true,
     lockedUntil: new Date(lockedUntilMs).toISOString(),
     remainingSeconds,
@@ -133,7 +146,8 @@ function buildLockedResult(lockedUntilMs) {
  * Obsługa licznika dla nieistniejącego loginu
  */
 function registerPhantomFailure(username, policy) {
-  if (!policy.enabled) return { success: false, message: GENERIC_LOGIN_ERROR };
+  const unknownUserResult = { success: false, reason: LOGIN_FAILURE_REASONS.UNKNOWN_USER, message: GENERIC_LOGIN_ERROR };
+  if (!policy.enabled) return unknownUserResult;
 
   const key = String(username || '').toLowerCase();
   if (phantomLockouts.size > PHANTOM_MAX_ENTRIES) phantomLockouts.clear();
@@ -145,11 +159,11 @@ function registerPhantomFailure(username, policy) {
     entry.attempts = 0;
     entry.lockedUntil = Date.now() + policy.durationMs;
     phantomLockouts.set(key, entry);
-    return buildLockedResult(entry.lockedUntil);
+    return { ...buildLockedResult(entry.lockedUntil, LOGIN_FAILURE_REASONS.LOCKOUT_TRIGGERED), unknownUser: true };
   }
 
   phantomLockouts.set(key, entry);
-  return { success: false, message: GENERIC_LOGIN_ERROR };
+  return { ...unknownUserResult, attempts: entry.attempts, maxAttempts: policy.maxAttempts };
 }
 
 function getPhantomLock(username) {
@@ -279,7 +293,7 @@ async function authenticateUser(username, password) {
   if (!user) {
     const phantomLock = policy.enabled ? getPhantomLock(username) : null;
     if (phantomLock) {
-      return buildLockedResult(phantomLock);
+      return { ...buildLockedResult(phantomLock), unknownUser: true };
     }
     bcrypt.compareSync(password || '', DUMMY_HASH);
     return registerPhantomFailure(username, policy);
@@ -297,7 +311,7 @@ async function authenticateUser(username, password) {
 
   if (!isPasswordValid) {
     if (!policy.enabled) {
-      return { success: false, message: GENERIC_LOGIN_ERROR };
+      return { success: false, reason: LOGIN_FAILURE_REASONS.BAD_PASSWORD, message: GENERIC_LOGIN_ERROR };
     }
     
     const previousAttempts = lockedUntilMs ? 0 : (user.failedLoginAttempts || 0);
@@ -309,11 +323,17 @@ async function authenticateUser(username, password) {
         failedLoginAttempts: 0,
         lockedUntil: new Date(newLockedUntil).toISOString()
       });
-      return buildLockedResult(newLockedUntil);
+      return { ...buildLockedResult(newLockedUntil, LOGIN_FAILURE_REASONS.LOCKOUT_TRIGGERED), attempts, maxAttempts: policy.maxAttempts };
     }
 
     db.updateUser(user.id, { failedLoginAttempts: attempts, lockedUntil: null });
-    return { success: false, message: GENERIC_LOGIN_ERROR };
+    return {
+      success: false,
+      reason: LOGIN_FAILURE_REASONS.BAD_PASSWORD,
+      message: GENERIC_LOGIN_ERROR,
+      attempts,
+      maxAttempts: policy.maxAttempts
+    };
   }
 
   // Poprawne hasło: zerowanie licznika błędnych prób
@@ -325,6 +345,7 @@ async function authenticateUser(username, password) {
   if (user.isBlocked) {
     return {
       success: false,
+      reason: LOGIN_FAILURE_REASONS.ACCOUNT_BLOCKED,
       message: 'Konto jest zablokowane. Skontaktuj się z administratorem.'
     };
   }
@@ -335,6 +356,7 @@ async function authenticateUser(username, password) {
     if (Date.now() > expiresAt) {
       return {
         success: false,
+        reason: LOGIN_FAILURE_REASONS.TEMP_PASSWORD_EXPIRED,
         message: 'Hasło jednorazowe wygasło (ważność 24 h). Skontaktuj się z administratorem.'
       };
     }
@@ -342,18 +364,21 @@ async function authenticateUser(username, password) {
 
   // Sprawdzenie ważności hasła w dniach
   const config = db.getConfig();
+  let passwordExpired = false;
   if (config.passwordValidityDays && config.passwordValidityDays > 0 && user.passwordChangedAt && !user.mustChangePassword) {
     const changedAt = new Date(user.passwordChangedAt).getTime();
     const maxAgeMs = config.passwordValidityDays * 24 * 60 * 60 * 1000;
     if (Date.now() - changedAt > maxAgeMs) {
       db.updateUser(user.id, { mustChangePassword: true });
       user.mustChangePassword = true;
+      passwordExpired = true;
     }
   }
 
   return {
     success: true,
-    user
+    user,
+    passwordExpired
   };
 }
 
@@ -404,6 +429,7 @@ async function changePassword({ userId, oldPassword, newPassword, confirmPasswor
 }
 
 module.exports = {
+  LOGIN_FAILURE_REASONS,
   generateTemporaryPassword,
   checkHaveIBeenPwned,
   validatePasswordPolicy,

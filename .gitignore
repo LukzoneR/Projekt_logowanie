@@ -1,5 +1,6 @@
-# Alerty Canarytokens (dane runtime)
+# Alerty Canarytokens i dziennik zdarzeń (dane runtime)
 src/data/canary_alerts.json
+src/data/audit_log.json
 
 # Logs
 logs

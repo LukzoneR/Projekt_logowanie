@@ -101,6 +101,7 @@ h3 {
 .form-group input[type="text"],
 .form-group input[type="password"],
 .form-group input[type="number"],
+.form-group input[type="datetime-local"],
 .form-group select {
   width: 100%;
   padding: 8px 12px;
@@ -451,6 +452,119 @@ h3 {
 
 .hidden {
   display: none !important;
+}
+
+.audit-summary-title {
+  font-size: 0.9rem;
+  margin: 12px 0 6px;
+  color: #334155;
+}
+
+.audit-summary-title .hint {
+  display: inline;
+  font-weight: 400;
+}
+
+.audit-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.audit-summary-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.audit-summary-item:hover {
+  border-color: #2563eb;
+}
+
+.audit-summary-item.has-failures {
+  border-left: 3px solid #dc2626;
+}
+
+.audit-summary-item strong {
+  display: block;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.audit-count-ok {
+  color: #166534;
+}
+
+.audit-count-fail {
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.audit-filters {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 14px 4px;
+  margin-bottom: 12px;
+}
+
+.audit-filters .form-row {
+  gap: 12px;
+}
+
+.audit-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.audit-export,
+.audit-pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.audit-export select,
+.audit-pagination select {
+  padding: 4px 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.audit-user-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #1d4ed8;
+  cursor: pointer;
+  text-align: left;
+}
+
+.audit-user-link:hover {
+  text-decoration: underline;
+}
+
+.audit-table td {
+  font-size: 0.82rem;
+  vertical-align: top;
+}
+
+.audit-table td:first-child {
+  white-space: nowrap;
 }
 
 .hp-field {

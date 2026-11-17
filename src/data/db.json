@@ -47,18 +47,19 @@
     {
       "id": "usr_pracownik2",
       "username": "pracownik2",
-      "passwordHash": "$2b$10$6vMT8hTzW1hm9rgc86xnL.Ak5ZVZ32qq366T/4GJaiZoVesUKnZRW",
+      "passwordHash": "$2b$10$UkFCopPypn8PX6.c6ba0FOII2bSP3cb57KpofSEn7DYAogeClBLzS",
       "passwordHistory": [
-        "$2b$10$6vMT8hTzW1hm9rgc86xnL.Ak5ZVZ32qq366T/4GJaiZoVesUKnZRW"
+        "$2b$10$6vMT8hTzW1hm9rgc86xnL.Ak5ZVZ32qq366T/4GJaiZoVesUKnZRW",
+        "$2b$10$UkFCopPypn8PX6.c6ba0FOII2bSP3cb57KpofSEn7DYAogeClBLzS"
       ],
       "role": "Pracownik",
       "mustChangePassword": false,
       "temporaryPasswordExpiresAt": null,
       "isBlocked": false,
       "failedLoginAttempts": 0,
-      "lockedUntil": "2026-11-03T16:23:37.287Z",
+      "lockedUntil": null,
       "isPermanentAdmin": false,
-      "passwordChangedAt": "2026-11-03T13:47:38.446Z",
+      "passwordChangedAt": "2026-11-17T11:54:45.769Z",
       "createdAt": "2026-11-03T13:47:38.446Z"
     },
     {
