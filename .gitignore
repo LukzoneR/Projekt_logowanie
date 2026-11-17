@@ -3,6 +3,7 @@ src/data/canary_alerts.json
 src/data/audit_log.json
 src/data/audit_log.sha256.json
 src/data/audit_log.tampered-*.json
+src/data/security_alerts.json
 
 # Logs
 logs

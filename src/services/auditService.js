@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const securityAlertService = require('./securityAlertService');
 
 /**
  * Dziennik zdarzeń bezpieczeństwa (audit log)
@@ -41,7 +42,8 @@ const ACTIONS = Object.freeze({
   AUDIT_MODIFY_DENIED: 'Próba edycji/usunięcia wpisów dziennika',
   INTEGRITY_CHECK: 'Weryfikacja integralności dziennika',
   INTEGRITY_VIOLATION: 'Naruszenie integralności dziennika',
-  INTEGRITY_ACK: 'Potwierdzenie incydentu integralności'
+  INTEGRITY_ACK: 'Potwierdzenie incydentu integralności',
+  SECURITY_ALERT: 'Alert bezpieczeństwa'
 });
 
 const RESULTS = Object.freeze({
@@ -213,6 +215,7 @@ function appendEntry(entry) {
   const entries = loadEntries();
   entries.push(entry);
   saveEntries(entries);
+  return entries;
 }
 
 function getRequestIp(req) {
@@ -264,6 +267,21 @@ function buildViolationEntry(req, incident) {
   });
 }
 
+function buildAlertEntry(req, entry, { alert, delivered, error }) {
+  const ips = alert.ips.join(', ');
+  const subjectType = alert.subjectType.charAt(0).toUpperCase() + alert.subjectType.slice(1);
+  return buildEntry(req, {
+    action: 'SECURITY_ALERT',
+    success: false,
+    username: entry.username,
+    description: `Reguła: ${alert.rule}. ${subjectType}: ${alert.subject}, zdarzeń: ${alert.count} ` +
+      `(próg ${alert.threshold}) od ${formatTimestamp(alert.firstAt)} do ${formatTimestamp(alert.lastAt)}, IP: ${ips}. ` +
+      (delivered
+        ? `Alert ${alert.id} wysłano do pliku ${securityAlertService.ALERTS_FILE}.`
+        : `Alert ${alert.id} - BŁĄD zapisu do pliku ${securityAlertService.ALERTS_FILE}: ${error}.`)
+  });
+}
+
 function log(req, fields) {
   const entry = buildEntry(req, fields);
 
@@ -271,7 +289,11 @@ function log(req, fields) {
     // Kontrola przed zapisem: inaczej nowy wpis przeliczyłby sumę i zatarł ślad ingerencji
     const { incident } = detectTampering('zapis zdarzenia');
     if (incident) appendEntry(buildViolationEntry(req, incident));
-    appendEntry(entry);
+    const entries = appendEntry(entry);
+
+    for (const result of securityAlertService.evaluate(entry, entries)) {
+      appendEntry(buildAlertEntry(req, entry, result));
+    }
   } catch (err) {
     console.error('Dziennik zdarzeń: nie udało się zapisać wpisu:', err.message);
   }
